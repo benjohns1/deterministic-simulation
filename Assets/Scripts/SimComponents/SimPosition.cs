@@ -1,16 +1,18 @@
 ﻿using UnityEngine;
+using EntityID = System.UInt64;
 
 namespace Simulation
 {
+    [System.Serializable]
     public class SimPosition : SimComponent
     {
         public Vector2 Position;
 
-        public SimPosition(ulong entityID, Vector2 position) : base(entityID)
+        public SimPosition(EntityID entityID, Vector2 position) : base(entityID)
         {
             Position = position;
         }
 
-        public override SimComponent InitPreview => new SimPosition(EntityID, Position);
+        public override object Clone() => new SimPosition(EntityID, Position);
     }
 }

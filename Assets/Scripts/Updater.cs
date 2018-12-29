@@ -1,6 +1,7 @@
 ﻿using Simulation;
+using Simulation.State;
+using System.Linq;
 using UnityEngine;
-using static Simulation.SimState;
 
 class Updater
 {
@@ -11,29 +12,19 @@ class Updater
         GameState = gameState;
     }
 
-    public void UpdateGame(SimState simState, float interpolate)
+    public void UpdateGame(FrameSnapshot frame, float interpolate)
     {
         // @TODO: determine which entities were actually updated last tick and only loop through them (raise event when SimSystem makes update?)
-
-        foreach (ComponentState state in simState.GetComponents<SimPosition>())
+        SimPosition[] positions = frame.Snapshot.GetComponents<SimPosition>().ToArray();
+        SimPosition[] nextPositions = frame.NextSnapshot.GetComponents<SimPosition>().ToArray();
+        for (int i = 0; i < positions.Length; i++)
         {
-            // @TODO: remove these casts for efficiency
-            SimPosition simPosition = state.Current as SimPosition;
-
             // @TODO: more efficiently get GameObject, related SimComponents and MonoBehaviours
-            GameObject go = GameState.GetGameObject(simPosition.EntityID);
+            GameObject go = GameState.GetGameObject(positions[i].EntityID);
             Transform transform = go.GetComponent<Transform>();
 
             Vector2 newPosition = Vector2.zero;
-            if (state.Preview != null)
-            {
-                SimPosition preview = state.Preview as SimPosition;
-                newPosition = Vector2.Lerp(simPosition.Position, preview.Position, interpolate);
-            }
-            else
-            {
-                newPosition = simPosition.Position;
-            }
+            newPosition = Vector2.Lerp(positions[i].Position, nextPositions[i].Position, interpolate);
             transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
         }
     }

@@ -5,50 +5,27 @@ using UnityEngine;
 
 namespace UserInput
 {
-    public enum MovementAction { Up, Down, Left, Right, Fast }
     public enum KeyAction { Pressed, Released }
 
-    internal struct MovementKeyEvent : IEvent
+    internal struct Key
     {
-        public KeyAction KeyAction { get; }
-        public MovementAction MovementAction { get; }
+        public readonly KeyCode Code;
+        public bool State;
 
-        public MovementKeyEvent(KeyAction keyAction, MovementAction movementAction) : this()
+        public Key(KeyCode key)
         {
-            KeyAction = keyAction;
-            MovementAction = movementAction;
+            Code = key;
+            State = Input.GetKey(key);
         }
     }
 
+    public delegate void FunctionKeyEventHandler(FunctionKeyEvent @event);
+
     public class InputHandler : IEmitter
     {
-        List<IEvent> IEmitter.Events => Events;
+        List<IEvent> IEmitter.Events => SimEvents;
 
-        private List<IEvent> Events = new List<IEvent>();
-
-        private struct Key
-        {
-            public readonly KeyCode Code;
-            public bool State;
-
-            public Key(KeyCode key)
-            {
-                Code = key;
-                State = Input.GetKey(key);
-            }
-        }
-
-        private struct MovementKey
-        {
-            public Key Key;
-            public readonly MovementAction MovementAction;
-
-            public MovementKey(KeyCode key, MovementAction movementAction)
-            {
-                Key = new Key(key);
-                MovementAction = movementAction;
-            }
-        }
+        private List<IEvent> SimEvents = new List<IEvent>();
 
         private readonly MovementKey[] MovementKeys = new MovementKey[]
         {
@@ -58,6 +35,13 @@ namespace UserInput
             new MovementKey(KeyCode.D, MovementAction.Right),
             new MovementKey(KeyCode.LeftShift, MovementAction.Fast)
         };
+
+        private readonly FunctionKey[] FunctionKeys = new FunctionKey[]
+        {
+            new FunctionKey(KeyCode.F5, FunctionAction.QuickSave),
+        };
+
+        public event FunctionKeyEventHandler OnFunctionKeyEvent;
 
         public void Capture()
         {
@@ -70,13 +54,26 @@ namespace UserInput
                     continue;
                 }
                 MovementKeys[i].Key.State = keyPressed;
-                Events.Add(new MovementKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.MovementAction));
+                SimEvents.Add(new MovementKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.MovementAction));
+            }
+
+            for (int i = 0; i < FunctionKeys.Length; i++)
+            {
+                FunctionKey key = FunctionKeys[i];
+                bool keyPressed = Input.GetKey(key.Key.Code);
+                if (keyPressed == key.Key.State)
+                {
+                    continue;
+                }
+                FunctionKeys[i].Key.State = keyPressed;
+                OnFunctionKeyEvent?.Invoke(new FunctionKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.FunctionAction));
+                //SimEvents.Add(new FunctionKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.FunctionAction));
             }
         }
 
         public void Retrieved()
         {
-            Events.Clear();
+            SimEvents.Clear();
         }
     }
 }

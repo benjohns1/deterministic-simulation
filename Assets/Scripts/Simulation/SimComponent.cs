@@ -1,13 +1,18 @@
-﻿namespace Simulation
-{
-    public abstract class SimComponent
-    {
-        public readonly ulong EntityID;
-        public virtual SimComponent InitPreview => null;
+﻿using System;
+using EntityID = System.UInt64;
 
-        protected SimComponent(ulong entityID)
+namespace Simulation
+{
+    [Serializable]
+    public abstract class SimComponent : ICloneable
+    {
+        public readonly EntityID EntityID;
+
+        protected SimComponent(EntityID entityID)
         {
             EntityID = entityID;
         }
+
+        public abstract object Clone();
     }
 }

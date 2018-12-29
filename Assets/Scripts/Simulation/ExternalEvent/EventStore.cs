@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using TickNumber = System.UInt32;
 
 namespace Simulation.ExternalEvent
 {
     internal class EventStore
     {
-        private readonly Dictionary<uint, List<IEvent>> events = new Dictionary<uint, List<IEvent>>();
+        private TickNumber lastAppliedTick = 0;
 
-        internal EventStore(Dictionary<uint, List<IEvent>> events = null)
+        private readonly Dictionary<TickNumber, List<IEvent>> events = new Dictionary<TickNumber, List<IEvent>>();
+
+        internal EventStore(Dictionary<TickNumber, List<IEvent>> events = null)
         {
             if (events != null && events.Count > 0)
             {
@@ -20,9 +22,9 @@ namespace Simulation.ExternalEvent
         /// </summary>
         /// <param name="currentTick"></param>
         /// <param name="newEvents"></param>
-        internal void AddEvents(uint currentTick, Dictionary<uint, List<IEvent>> newEvents)
+        internal void AddEvents(TickNumber currentTick, Dictionary<TickNumber, List<IEvent>> newEvents)
         {
-            foreach (KeyValuePair<uint, List<IEvent>> tickEvents in newEvents)
+            foreach (KeyValuePair<TickNumber, List<IEvent>> tickEvents in newEvents)
             {
                 if (currentTick >= tickEvents.Key)
                 {
@@ -38,7 +40,7 @@ namespace Simulation.ExternalEvent
         /// </summary>
         /// <param name="tick"></param>
         /// <param name="newEvents"></param>
-        internal void AddEvents(uint tick, List<IEvent> newEvents)
+        internal void AddEvents(TickNumber tick, List<IEvent> newEvents)
         {
             if (newEvents == null || newEvents.Count <= 0)
             {
@@ -55,13 +57,23 @@ namespace Simulation.ExternalEvent
             }
         }
 
-        internal IEnumerable<IEvent> GetEvents(uint tick)
+        internal IEnumerable<IEvent> GetEvents(TickNumber tick)
         {
             if (events.ContainsKey(tick))
             {
                 return events[tick];
             }
             return new List<IEvent>();
+        }
+
+        /// <summary>
+        /// Flags all events up to and including this tick number as applied, so they can be safely removed from memory
+        /// </summary>
+        /// <param name="tick"></param>
+        internal void SetApplied(TickNumber tick)
+        {
+            lastAppliedTick = tick;
+            // @TODO: background thread/coroutine that persists applied events to disc/network and removes them from memory
         }
     }
 }

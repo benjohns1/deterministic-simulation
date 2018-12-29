@@ -1,16 +1,17 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using EntityID = System.UInt64;
 
 class GameState
 {
-    private readonly Dictionary<ulong, GameObject> Entities = new Dictionary<ulong, GameObject>();
+    private readonly Dictionary<EntityID, GameObject> Entities = new Dictionary<EntityID, GameObject>();
 
-    public void AddGameObject(ulong entityID, GameObject gameObject)
+    public void AddGameObject(EntityID entityID, GameObject gameObject)
     {
         Entities.Add(entityID, gameObject);
     }
 
-    public GameObject GetGameObject(ulong EntityID)
+    public GameObject GetGameObject(EntityID EntityID)
     {
         return Entities[EntityID];
     }

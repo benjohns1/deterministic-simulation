@@ -1,20 +1,26 @@
-﻿using SimAdapters;
-using Simulation;
-using System.Collections.Generic;
+﻿using Simulation;
+using Simulation.State;
+using Simulation.Serialization;
+using System;
+using System.IO;
+using System.Reflection;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UserInput;
+using TickNumber = System.UInt32;
 
 public class GameManager : MonoBehaviour
 {
+    private TickNumber CurrentTick;
     private Sim Sim;
     private Updater Updater;
     private InputHandler InputHandler;
+    private float TickOffset;
+    private string QuicksaveFilename;
 
-    [SerializeField]
-#pragma warning disable IDE0044 // Add readonly modifier
-    private float SecondsPerSimulationTick = 0.1f;
-#pragma warning restore IDE0044 // Add readonly modifier
+    public float SecondsPerSimulationTick = 0.1f;
+    public bool LoadFromAutosave;
 
     private void OnEnable()
     {
@@ -22,7 +28,7 @@ public class GameManager : MonoBehaviour
         Scene scene = SceneManager.GetActiveScene();
         if (scene != null && scene.isLoaded)
         {
-            SceneManager_sceneLoaded(scene, LoadSceneMode.Single);
+            Initialize();
         }
     }
     private void OnDisable()
@@ -32,30 +38,61 @@ public class GameManager : MonoBehaviour
 
     private void SceneManager_sceneLoaded(Scene scene, LoadSceneMode sceneMode)
     {
-        Initializer initializer = new Initializer();
+        Initialize();
+    }
+
+    private void Initialize()
+    {
+        QuicksaveFilename = Application.persistentDataPath + "/Saves/quicksave.sav";
+        string loadFromFile = LoadFromAutosave ? QuicksaveFilename : null;
+        Initializer initializer = new Initializer(loadFromFile, Assembly.GetExecutingAssembly());
         InputHandler = new InputHandler();
         Updater = new Updater(initializer.InitialGameState);
-        List<SimSystem> systems = new List<SimSystem>()
+        Sim = new Sim(initializer.InitialSimState, InputHandler, initializer.Systems, OnSimUpdated);
+        TickOffset = Time.time;
+
+        InputHandler.OnFunctionKeyEvent += InputHandler_OnFunctionKeyEvent;
+    }
+
+    private void InputHandler_OnFunctionKeyEvent(FunctionKeyEvent @event)
+    {
+        switch (@event.FunctionAction)
         {
-            new SimAdapters.Camera()
-        };
-        Sim = new Sim(initializer, InputHandler, systems, OnSimUpdated);
+            case FunctionAction.QuickSave:
+                QuickSave();
+                break;
+        }
+    }
+
+    private async void QuickSave()
+    {
+        await Task.Factory.StartNew(() =>
+        {
+            (new FileInfo(QuicksaveFilename)).Directory.Create();
+            using (FileStream fileStream = new FileStream(QuicksaveFilename, FileMode.Create, FileAccess.Write))
+            {
+                Snapshot snapshot = Sim.GetSnapshot(Math.Max(CurrentTick - 10, 0));
+                // @TODO: merge simulation snapshot with gamestate / prefabs for re-loading entities
+                Serializer serializer = new Serializer();
+                serializer.Serialize(fileStream, snapshot);
+            }
+        });
     }
 
     private void Update()
     {
-        uint tick = (uint)Mathf.FloorToInt(Time.time / SecondsPerSimulationTick);
+        CurrentTick = (TickNumber)Mathf.FloorToInt((Time.time - TickOffset) / SecondsPerSimulationTick);
         InputHandler.Capture();
-        Sim.Update(tick);
+        Sim.Update(CurrentTick);
     }
 
-    private void OnSimUpdated(uint tick, bool stateUpdated, SimState State)
+    private void OnSimUpdated(FrameSnapshot frame)
     {
-        float interpolation = InterpolationValue(Time.time, tick, SecondsPerSimulationTick);
-        Updater.UpdateGame(State, interpolation);
+        float interpolation = InterpolationValue(Time.time, frame.Tick, SecondsPerSimulationTick);
+        Updater.UpdateGame(frame, interpolation);
     }
 
-    private static float InterpolationValue(float time, uint tick, float tickLength)
+    private static float InterpolationValue(float time, TickNumber tick, float tickLength)
     {
         float tickTime = tick * tickLength;
         return Mathf.InverseLerp(tickTime, tickTime + tickLength, time);

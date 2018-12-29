@@ -152,6 +152,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7b232753afae9841a64c943d7895d50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EntityID: 0
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -252,6 +253,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SecondsPerSimulationTick: 0.1
+  LoadFromAutosave: 1
 --- !u!4 &626712588
 Transform:
   m_ObjectHideFlags: 0
@@ -299,6 +301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7b232753afae9841a64c943d7895d50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EntityID: 0
 --- !u!65 &896685059
 BoxCollider:
   m_ObjectHideFlags: 0

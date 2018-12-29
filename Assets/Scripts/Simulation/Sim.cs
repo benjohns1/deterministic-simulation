@@ -1,64 +1,67 @@
 ﻿using Simulation.ExternalEvent;
+using Simulation.State;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using TickNumber = System.UInt32;
 
 namespace Simulation
 {
-    public delegate void UpdateCallback(uint tick, bool stateUpdated, SimState State);
+    public delegate void UpdateCallback(FrameSnapshot frame);
 
     public class Sim
     {
         public const byte MaxTicksPerUpdate = 8;
-        private uint Tick = 0;
         private SimState State;
         private EventStore EventStore;
-        private PubSub PubSub;
         private IEmitter EventEmitter;
         private readonly IEnumerable<SimSystem> Systems;
+        private readonly IEnumerable<SimSystem> UntickableSystems;
         private readonly UpdateCallback UpdateCallback;
 
-        public Sim(IInitializer initializer, IEmitter eventEmitter, IEnumerable<SimSystem> systems, UpdateCallback callback)
+        public Sim(SimState initialState, IEmitter eventEmitter, IEnumerable<SimSystem> systems, UpdateCallback callback, Dictionary<TickNumber, List<IEvent>> events = null)
         {
-            State = initializer.InitialSimState;
-            Dictionary<uint, List<IEvent>> events = initializer.InitialEvents;
+            State = initialState;
             EventStore = new EventStore(events);
-            PubSub = new PubSub();
             EventEmitter = eventEmitter;
             Systems = systems;
             UpdateCallback = callback;
-
-            foreach (SimSystem system in Systems)
-            {
-                if (system.Subscriptions != null)
-                {
-                    PubSub.Subscribe(system.Subscriptions);
-                }
-            }
         }
 
-        public void Update(uint tick)
+        public Snapshot GetSnapshot(TickNumber tick)
+        {
+            return State.GetSnapshot(tick);
+        }
+
+        public void Update(TickNumber tick)
         {
             // Retrieve external events
             List<IEvent> events = EventEmitter.Events;
-            EventStore.AddEvents(tick, events);
+            EventStore.AddEvents(tick + 2, events);
             EventEmitter.Retrieved();
 
-            // Update all systems until current tick is reached
-            bool update = Tick != tick;
+            // Run all systems until this tick and next tick have been updated
             byte tickCount;
-            for (tickCount = 0; Tick < tick && tickCount < MaxTicksPerUpdate; tickCount++, Tick++)
+            TickNumber updateTick = State.Tick;
+            for (tickCount = 0; updateTick <= tick && tickCount < MaxTicksPerUpdate; tickCount++)
             {
-                // Apply events
-                foreach (IEvent @event in EventStore.GetEvents(Tick))
-                {
-                    PubSub.Publish(@event);
-                }
+                updateTick++;
+                State.NewSnapshot(updateTick);
+
+                // Get events that occurred this tick
+                IEnumerable<IEvent> tickEvents = EventStore.GetEvents(updateTick);
 
                 // Run system logic
                 foreach (SimSystem system in Systems)
                 {
-                    system.Tick(Tick, State);
+                    IEnumerable<IEvent> systemEvents = tickEvents.Where(e => system.Subscriptions.Any(s => s.EventType == e.GetType()));
+                    State.Update(system.Tick(State, systemEvents));
                 }
+
+                EventStore.SetApplied(updateTick);
             }
+
+            bool update = tickCount > 0;
 
             if (tickCount == MaxTicksPerUpdate)
             {
@@ -66,14 +69,7 @@ namespace Simulation
                 UnityEngine.Debug.Log("max ticks per update");
             }
 
-            // Apply preview of next tick for smooth value interpolation
-            foreach (SimSystem system in Systems)
-            {
-                // @TODO: current preview doesn't apply events, which causes jumping, need to apply events to preview to avoid this
-                system.Preview(Tick + 1, State);
-            }
-
-            UpdateCallback(tick, update, State);
+            UpdateCallback(State.GetFrameSnapshot(tick));
         }
     }
 }

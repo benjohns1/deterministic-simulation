@@ -6,6 +6,7 @@
 Assets/AssetStoreTools*
 StandardShaders/
 Logs/
+Saves/
 
 # Visual Studio cache directory
 .vs/

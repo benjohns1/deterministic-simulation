@@ -20,9 +20,9 @@ namespace Simulation.State
 
         private Serializer Serializer = new Serializer();
 
-        public SimState(string FileName)
+        public SimState(Snapshot snapshot)
         {
-            Snapshots.Add(0, LoadSnapshotFromFile(FileName));
+            Snapshots.Add(0, (Snapshot)snapshot.Clone());
 
             EntityID largestEntityID = 0;
             foreach (SimComponent component in CurrentSnapshot.GetComponents())
@@ -80,21 +80,16 @@ namespace Simulation.State
 
         internal FrameSnapshot GetFrameSnapshot(TickNumber tick)
         {
+            if (!Snapshots.ContainsKey(tick) || !Snapshots.ContainsKey(tick+1))
+            {
+                UnityEngine.Debug.Log("Tick: " + tick);
+            }
             return new FrameSnapshot(tick, Snapshots[tick], Snapshots[tick + 1]);
         }
 
         internal void Update(IEnumerable<ComponentUpdate> updates)
         {
             CurrentSnapshot.Update(updates);
-        }
-
-        internal Snapshot LoadSnapshotFromFile(string FileName)
-        {
-            using (FileStream stream = new FileStream(FileName, FileMode.Open, FileAccess.Read))
-            {
-                Snapshot snapshot = (Snapshot)Serializer.Deserialize(stream);
-                return snapshot;
-            }
         }
     }
 }

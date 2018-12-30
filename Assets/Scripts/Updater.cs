@@ -20,12 +20,20 @@ class Updater
         for (int i = 0; i < positions.Length; i++)
         {
             // @TODO: more efficiently get GameObject, related SimComponents and MonoBehaviours
-            GameObject go = GameState.GetGameObject(positions[i].EntityID);
+            GameObject go = GameState.GetGameObject(positions[i].EntityID).GameObject;
             Transform transform = go.GetComponent<Transform>();
 
             Vector2 newPosition = Vector2.zero;
             newPosition = Vector2.Lerp(positions[i].Position, nextPositions[i].Position, interpolate);
             transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
+        }
+
+        SimCamera[] cameras = frame.Snapshot.GetComponents<SimCamera>().ToArray();
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            GameObject go = GameState.GetGameObject(cameras[i].EntityID).GameObject;
+            Camera camera = go.GetComponent<Camera>();
+            camera.enabled = cameras[i].Enabled;
         }
     }
 }

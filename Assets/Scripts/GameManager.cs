@@ -1,7 +1,7 @@
 ﻿using Simulation;
 using Simulation.State;
-using Simulation.Serialization;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -13,6 +13,8 @@ using TickNumber = System.UInt32;
 public class GameManager : MonoBehaviour
 {
     private TickNumber CurrentTick;
+    private float CurrentFrameTime;
+    private GameState GameState;
     private Sim Sim;
     private Updater Updater;
     private InputHandler InputHandler;
@@ -20,10 +22,12 @@ public class GameManager : MonoBehaviour
     private string QuicksaveFilename;
 
     public float SecondsPerSimulationTick = 0.1f;
-    public bool LoadFromAutosave;
 
     private void OnEnable()
     {
+        QuicksaveFilename = Application.persistentDataPath + "/Saves/quicksave.sav";
+        SetupInputHandler();
+
         SceneManager.sceneLoaded += SceneManager_sceneLoaded;
         Scene scene = SceneManager.GetActiveScene();
         if (scene != null && scene.isLoaded)
@@ -34,6 +38,7 @@ public class GameManager : MonoBehaviour
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= SceneManager_sceneLoaded;
+        SetupInputHandler(false);
     }
 
     private void SceneManager_sceneLoaded(Scene scene, LoadSceneMode sceneMode)
@@ -41,17 +46,29 @@ public class GameManager : MonoBehaviour
         Initialize();
     }
 
-    private void Initialize()
+    private void Initialize(string loadFromFile = null)
     {
-        QuicksaveFilename = Application.persistentDataPath + "/Saves/quicksave.sav";
-        string loadFromFile = LoadFromAutosave ? QuicksaveFilename : null;
-        Initializer initializer = new Initializer(loadFromFile, Assembly.GetExecutingAssembly());
-        InputHandler = new InputHandler();
-        Updater = new Updater(initializer.InitialGameState);
+        SerializableGameData data = loadFromFile == null ? null : LoadFromFile(QuicksaveFilename);
+        Initializer initializer = new Initializer(data, Assembly.GetExecutingAssembly());
+        GameState = initializer.InitialGameState;
+        Updater = new Updater(GameState);
         Sim = new Sim(initializer.InitialSimState, InputHandler, initializer.Systems, OnSimUpdated);
-        TickOffset = Time.time;
 
-        InputHandler.OnFunctionKeyEvent += InputHandler_OnFunctionKeyEvent;
+        TickOffset = Time.time;
+        Sim.Enabled = true;
+    }
+
+    private void SetupInputHandler(bool setup = true)
+    {
+        if (setup)
+        {
+            InputHandler = new InputHandler();
+            InputHandler.OnFunctionKeyEvent += InputHandler_OnFunctionKeyEvent;
+        }
+        else
+        {
+            InputHandler.OnFunctionKeyEvent -= InputHandler_OnFunctionKeyEvent;
+        }
     }
 
     private void InputHandler_OnFunctionKeyEvent(FunctionKeyEvent @event)
@@ -61,6 +78,9 @@ public class GameManager : MonoBehaviour
             case FunctionAction.QuickSave:
                 QuickSave();
                 break;
+            case FunctionAction.QuickLoad:
+                QuickLoad();
+                break;
         }
     }
 
@@ -68,33 +88,53 @@ public class GameManager : MonoBehaviour
     {
         await Task.Factory.StartNew(() =>
         {
-            (new FileInfo(QuicksaveFilename)).Directory.Create();
-            using (FileStream fileStream = new FileStream(QuicksaveFilename, FileMode.Create, FileAccess.Write))
-            {
-                Snapshot snapshot = Sim.GetSnapshot(Math.Max(CurrentTick - 10, 0));
-                // @TODO: merge simulation snapshot with gamestate / prefabs for re-loading entities
-                Serializer serializer = new Serializer();
-                serializer.Serialize(fileStream, snapshot);
-            }
+            SaveToFile(QuicksaveFilename);
         });
+    }
+
+    private void QuickLoad()
+    {
+        Sim.Enabled = false;
+        Initialize(QuicksaveFilename);
+    }
+
+    private void SaveToFile(string Filename)
+    {
+        (new FileInfo(Filename)).Directory.Create();
+        using (FileStream fileStream = new FileStream(Filename, FileMode.Create, FileAccess.Write))
+        {
+            Snapshot snapshot = Sim.GetSnapshot(Math.Max(CurrentTick - 1, 0));
+            Dictionary<ulong, string> archetypes = GameState.GetEntityArchetypes();
+            SerializableGameData data = new SerializableGameData(snapshot, archetypes);
+            data.Serialize(fileStream);
+        }
+    }
+
+    private SerializableGameData LoadFromFile(string Filename)
+    {
+        using (FileStream stream = new FileStream(Filename, FileMode.Open, FileAccess.Read))
+        {
+            return SerializableGameData.Deserialize(stream);
+        }
     }
 
     private void Update()
     {
-        CurrentTick = (TickNumber)Mathf.FloorToInt((Time.time - TickOffset) / SecondsPerSimulationTick);
         InputHandler.Capture();
+        CurrentFrameTime = Time.time - TickOffset;
+        CurrentTick = (TickNumber)Mathf.FloorToInt(CurrentFrameTime / SecondsPerSimulationTick);
         Sim.Update(CurrentTick);
     }
 
     private void OnSimUpdated(FrameSnapshot frame)
     {
-        float interpolation = InterpolationValue(Time.time, frame.Tick, SecondsPerSimulationTick);
+        float interpolation = InterpolationValue(CurrentFrameTime, frame.Tick, SecondsPerSimulationTick);
         Updater.UpdateGame(frame, interpolation);
     }
 
     private static float InterpolationValue(float time, TickNumber tick, float tickLength)
     {
-        float tickTime = tick * tickLength;
-        return Mathf.InverseLerp(tickTime, tickTime + tickLength, time);
+        float lerpTime = time - (tick * tickLength);
+        return Mathf.InverseLerp(0, tickLength, lerpTime);
     }
 }

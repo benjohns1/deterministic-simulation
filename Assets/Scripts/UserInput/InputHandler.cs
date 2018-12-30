@@ -39,6 +39,7 @@ namespace UserInput
         private readonly FunctionKey[] FunctionKeys = new FunctionKey[]
         {
             new FunctionKey(KeyCode.F5, FunctionAction.QuickSave),
+            new FunctionKey(KeyCode.F6, FunctionAction.QuickLoad),
         };
 
         public event FunctionKeyEventHandler OnFunctionKeyEvent;
@@ -67,7 +68,6 @@ namespace UserInput
                 }
                 FunctionKeys[i].Key.State = keyPressed;
                 OnFunctionKeyEvent?.Invoke(new FunctionKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.FunctionAction));
-                //SimEvents.Add(new FunctionKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.FunctionAction));
             }
         }
 

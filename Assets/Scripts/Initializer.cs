@@ -8,29 +8,27 @@ using TickNumber = System.UInt32;
 using System.Reflection;
 using System.Linq;
 
-class Initializer : IInitializer
+class Initializer
 {
     public GameState InitialGameState { get; private set; }
     public SimState InitialSimState { get; private set; }
     public List<SimSystem> Systems { get; }
 
-    Dictionary<TickNumber, List<IEvent>> IInitializer.InitialEvents => null;
+    Dictionary<TickNumber, List<IEvent>> InitialEvents => null;
 
-    public Initializer(string loadFromFile, Assembly systemsAssembly)
+    public Initializer(SerializableGameData data, Assembly systemsAssembly)
     {
         InitialGameState = new GameState();
         Systems = InitializeSystems(systemsAssembly);
 
-        if (loadFromFile == null)
+        if (data == null)
         {
             InitializeFromScene();
         }
         else
         {
-            InitializeFromFile(loadFromFile);
+            InitializeFromGameData(data);
         }
-
-
     }
 
     private void InitializeFromScene()
@@ -42,6 +40,7 @@ class Initializer : IInitializer
         {
             EntityID entityID = InitialSimState.CreateEntity();
             entityComponent.EntityID = entityID;
+            InitialGameState.AddArchetype(entityComponent.gameObject);
             InitialGameState.AddGameObject(entityID, entityComponent.gameObject);
 
             // @TODO: Move component-specific logic to IComponentInitializer adapters or elsewhere?
@@ -59,28 +58,30 @@ class Initializer : IInitializer
             CameraComponent cameraComponent = entityComponent.GetComponent<CameraComponent>();
             if (cameraComponent != null)
             {
-                InitialSimState.AddComponent(new SimCamera(entityID, cameraComponent.Speed, cameraComponent.FastSpeed));
+                InitialSimState.AddComponent(new SimCamera(entityID, cameraComponent.Speed, cameraComponent.FastSpeed, cameraComponent.enabled));
             }
         }
     }
 
-    private void InitializeFromFile(string filename)
+    private void InitializeFromGameData(SerializableGameData data)
     {
-        InitialSimState = new SimState(filename);
+        InitialSimState = new SimState(data.Snapshot);
 
         EntityComponent[] simEntities = Object.FindObjectsOfType<EntityComponent>();
-        foreach (EntityComponent entityGameObject in simEntities)
+        foreach (EntityComponent entityComponent in simEntities)
         {
-            Object.Destroy(entityGameObject.gameObject);
+            InitialGameState.AddArchetype(entityComponent.gameObject);
+            Object.Destroy(entityComponent.gameObject);
         }
 
+        List<EntityID> createdEntities = new List<EntityID>();
         foreach (SimComponent component in InitialSimState.GetComponents())
         {
-            System.Type type = component.GetType();
-            Debug.Log("Loading " + type);
-            if (type == typeof(SimPosition))
+            if (!createdEntities.Contains(component.EntityID))
             {
-
+                string archetypeName = data.Archetypes.First(a => a.Key == component.EntityID).Value;
+                InitialGameState.InstantiateArchetypeAndAdd(component.EntityID, archetypeName);
+                createdEntities.Add(component.EntityID);
             }
         }
     }

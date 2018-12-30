@@ -153,6 +153,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   EntityID: 0
+  ArchetypeName: 
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -302,6 +303,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   EntityID: 0
+  ArchetypeName: 
 --- !u!65 &896685059
 BoxCollider:
   m_ObjectHideFlags: 0

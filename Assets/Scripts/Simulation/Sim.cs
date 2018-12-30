@@ -12,6 +12,7 @@ namespace Simulation
     public class Sim
     {
         public const byte MaxTicksPerUpdate = 8;
+        public bool Enabled = false;
         private SimState State;
         private EventStore EventStore;
         private IEmitter EventEmitter;
@@ -35,6 +36,11 @@ namespace Simulation
 
         public void Update(TickNumber tick)
         {
+            if (!Enabled)
+            {
+                return;
+            }
+
             // Retrieve external events
             List<IEvent> events = EventEmitter.Events;
             EventStore.AddEvents(tick + 2, events);

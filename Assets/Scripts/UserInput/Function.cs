@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace UserInput
 {
-    public enum FunctionAction { QuickSave }
+    public enum FunctionAction { QuickSave, QuickLoad }
 
     public struct FunctionKeyEvent : IEvent
     {

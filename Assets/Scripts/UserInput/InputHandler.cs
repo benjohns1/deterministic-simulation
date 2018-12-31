@@ -1,79 +1,55 @@
-﻿
-using System.Collections.Generic;
-using Simulation.ExternalEvent;
+﻿using Simulation.ExternalEvent;
 using UnityEngine;
 
 namespace UserInput
 {
-    public enum KeyAction { Pressed, Released }
-
-    internal struct Key
+    public struct Key
     {
         public readonly KeyCode Code;
+        public readonly InputAction Action;
         public bool State;
 
-        public Key(KeyCode key)
+        public Key(KeyCode key, InputAction action)
         {
             Code = key;
-            State = Input.GetKey(key);
+            Action = action;
+            State = false;
         }
     }
 
-    public delegate void FunctionKeyEventHandler(FunctionKeyEvent @event);
-
-    public class InputHandler : IEmitter
+    public struct KeyEvent : IEvent
     {
-        List<IEvent> IEmitter.Events => SimEvents;
+        public KeyInteraction KeyInteraction { get; }
+        public InputAction Action { get; }
 
-        private List<IEvent> SimEvents = new List<IEvent>();
-
-        private readonly MovementKey[] MovementKeys = new MovementKey[]
+        public KeyEvent(KeyInteraction keyInteraction, InputAction action) : this()
         {
-            new MovementKey(KeyCode.W, MovementAction.Up),
-            new MovementKey(KeyCode.A, MovementAction.Left),
-            new MovementKey(KeyCode.S, MovementAction.Down),
-            new MovementKey(KeyCode.D, MovementAction.Right),
-            new MovementKey(KeyCode.LeftShift, MovementAction.Fast)
-        };
-
-        private readonly FunctionKey[] FunctionKeys = new FunctionKey[]
-        {
-            new FunctionKey(KeyCode.F5, FunctionAction.QuickSave),
-            new FunctionKey(KeyCode.F6, FunctionAction.QuickLoad),
-        };
-
-        public event FunctionKeyEventHandler OnFunctionKeyEvent;
-
-        public void Capture()
-        {
-            for (int i = 0; i < MovementKeys.Length; i++)
-            {
-                MovementKey key = MovementKeys[i];
-                bool keyPressed = Input.GetKey(key.Key.Code);
-                if (keyPressed == key.Key.State)
-                {
-                    continue;
-                }
-                MovementKeys[i].Key.State = keyPressed;
-                SimEvents.Add(new MovementKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.MovementAction));
-            }
-
-            for (int i = 0; i < FunctionKeys.Length; i++)
-            {
-                FunctionKey key = FunctionKeys[i];
-                bool keyPressed = Input.GetKey(key.Key.Code);
-                if (keyPressed == key.Key.State)
-                {
-                    continue;
-                }
-                FunctionKeys[i].Key.State = keyPressed;
-                OnFunctionKeyEvent?.Invoke(new FunctionKeyEvent(keyPressed ? KeyAction.Pressed : KeyAction.Released, key.FunctionAction));
-            }
+            KeyInteraction = keyInteraction;
+            Action = action;
         }
+    }
 
-        public void Retrieved()
+    public delegate void KeyEventHandler(KeyEvent keyEvent);
+
+    public class InputHandler
+    {
+        public event KeyEventHandler OnKeyEvent;
+
+        private IControlScheme Bindings = new DefaultBindings();
+
+        public void Update()
         {
-            SimEvents.Clear();
+            for (int i = 0; i < Bindings.Keys.Length; i++)
+            {
+                Key key = Bindings.Keys[i];
+                bool keyPressed = Input.GetKey(key.Code);
+                if (keyPressed == key.State)
+                {
+                    continue;
+                }
+                Bindings.Keys[i].State = keyPressed;
+                OnKeyEvent?.Invoke(new KeyEvent(keyPressed ? KeyInteraction.Pressed : KeyInteraction.Released, key.Action));
+            }
         }
     }
 }

@@ -7,6 +7,8 @@ using EntityID = System.UInt64;
 using TickNumber = System.UInt32;
 using System.Reflection;
 using System.Linq;
+using SimLogic;
+using GameLogic;
 
 class Initializer
 {
@@ -35,8 +37,8 @@ class Initializer
     {
         InitialSimState = new SimState();
 
-        EntityComponent[] simEntities = Object.FindObjectsOfType<EntityComponent>();
-        foreach (EntityComponent entityComponent in simEntities)
+        SimEntityComponent[] simEntities = Object.FindObjectsOfType<SimEntityComponent>();
+        foreach (SimEntityComponent entityComponent in simEntities)
         {
             EntityID entityID = InitialSimState.CreateEntity();
             entityComponent.EntityID = entityID;
@@ -47,7 +49,10 @@ class Initializer
             Transform transformComponent = entityComponent.GetComponent<Transform>();
             if (transformComponent != null)
             {
-                InitialSimState.AddComponent(new SimPosition(entityID, transformComponent.position));
+                if (entityComponent.GetComponent<CameraComponent>() == null)
+                {
+                    InitialSimState.AddComponent(new SimPosition(entityID, transformComponent.position));
+                }
             }
 
             VelocityComponent velocityComponent = entityComponent.GetComponent<VelocityComponent>();
@@ -58,7 +63,7 @@ class Initializer
             CameraComponent cameraComponent = entityComponent.GetComponent<CameraComponent>();
             if (cameraComponent != null)
             {
-                InitialSimState.AddComponent(new SimCamera(entityID, cameraComponent.Speed, cameraComponent.FastSpeed, cameraComponent.enabled));
+                InitialSimState.AddComponent(new SimCamera(entityID, cameraComponent.transform.position, cameraComponent.enabled));
             }
         }
     }
@@ -67,21 +72,37 @@ class Initializer
     {
         InitialSimState = new SimState(data.Snapshot);
 
-        EntityComponent[] simEntities = Object.FindObjectsOfType<EntityComponent>();
-        foreach (EntityComponent entityComponent in simEntities)
+        SimEntityComponent[] simEntities = Object.FindObjectsOfType<SimEntityComponent>();
+        foreach (SimEntityComponent entityComponent in simEntities)
         {
             InitialGameState.AddArchetype(entityComponent.gameObject);
             Object.Destroy(entityComponent.gameObject);
         }
 
+        // Create game objects and save entity in sim
         List<EntityID> createdEntities = new List<EntityID>();
+        List<GameObject> createdGameObjects = new List<GameObject>();
         foreach (SimComponent component in InitialSimState.GetComponents())
         {
             if (!createdEntities.Contains(component.EntityID))
             {
                 string archetypeName = data.Archetypes.First(a => a.Key == component.EntityID).Value;
-                InitialGameState.InstantiateArchetypeAndAdd(component.EntityID, archetypeName);
+                GameObject gameObject = InitialGameState.InstantiateArchetypeAndAdd(component.EntityID, archetypeName);
                 createdEntities.Add(component.EntityID);
+
+                // Enable all game components
+                // @TODO: save/load 'enabled' automatically upon serialization for each component
+                foreach (Behaviour behaviour in gameObject.GetComponents<Behaviour>())
+                {
+                    behaviour.enabled = true;
+                }
+            }
+
+            // Logic for any specialized game object initialization
+            if (component.GetType() == typeof(SimCamera))
+            {
+                GameObject cameraObject = InitialGameState.GetGameObject(component.EntityID).GameObject;
+                cameraObject.transform.position = (component as SimCamera).Position;
             }
         }
     }

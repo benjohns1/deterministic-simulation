@@ -1,7 +1,8 @@
-﻿using UnityEngine;
+﻿using Simulation;
+using UnityEngine;
 using EntityID = System.UInt64;
 
-namespace Simulation
+namespace SimLogic
 {
     [System.Serializable]
     public class SimPosition : SimComponent

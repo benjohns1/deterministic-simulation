@@ -80,10 +80,6 @@ namespace Simulation.State
 
         internal FrameSnapshot GetFrameSnapshot(TickNumber tick)
         {
-            if (!Snapshots.ContainsKey(tick) || !Snapshots.ContainsKey(tick+1))
-            {
-                UnityEngine.Debug.Log("Tick: " + tick);
-            }
             return new FrameSnapshot(tick, Snapshots[tick], Snapshots[tick + 1]);
         }
 

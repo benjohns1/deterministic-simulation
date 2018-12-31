@@ -48,7 +48,7 @@ class GameState
 
     private static string GetArchetypeName(GameObject gameObject)
     {
-        string name = gameObject.GetComponent<EntityComponent>().ArchetypeName;
+        string name = gameObject.GetComponent<SimEntityComponent>().ArchetypeName;
         return string.IsNullOrWhiteSpace(name) ? gameObject.name : name;
     }
 

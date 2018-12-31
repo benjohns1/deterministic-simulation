@@ -123,8 +123,8 @@ GameObject:
   - component: {fileID: 519420032}
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
-  - component: {fileID: 519420030}
   - component: {fileID: 519420033}
+  - component: {fileID: 519420030}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -222,8 +222,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 566752523f53681459cfd48a706bb304, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Speed: 1
-  FastSpeed: 5
+  NormalSpeed: 5
+  FastSpeed: 15
+  Up: {x: 0, y: 0}
+  Down: {x: 0, y: 0}
+  Left: {x: 0, y: 0}
+  Right: {x: 0, y: 0}
+  Velocity: {x: 0, y: 0, z: 0}
+  CurrentSpeed: 0
+  LastTickPosition: {x: 0, y: 0, z: 0}
 --- !u!1 &626712586
 GameObject:
   m_ObjectHideFlags: 0
@@ -253,8 +260,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c961eabb77a0dd4d83820883fa1920a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SecondsPerSimulationTick: 0.1
-  LoadFromAutosave: 1
+  SecondsPerSimulationTick: 1
 --- !u!4 &626712588
 Transform:
   m_ObjectHideFlags: 0
@@ -369,12 +375,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 896685057}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -8.472397, y: -12.159324, z: -2.6672661}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 2
+  m_Father: {fileID: 1234148756}
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &896685063
 MonoBehaviour:
@@ -390,3 +396,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaxAcceleration: 0.1
   Velocity: {x: 0, y: 0}
+--- !u!1 &1234148755
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1234148756}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1234148756
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1234148755}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.472397, y: 12.159324, z: 2.6672661}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 896685062}
+  m_Father: {fileID: 0}
+  m_RootOrder: 2
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

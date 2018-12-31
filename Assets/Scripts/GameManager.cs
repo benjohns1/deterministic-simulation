@@ -1,8 +1,11 @@
-﻿using Simulation;
+﻿using GameLogic;
+using SimLogic;
+using Simulation;
 using Simulation.State;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -13,15 +16,19 @@ using TickNumber = System.UInt32;
 public class GameManager : MonoBehaviour
 {
     private TickNumber CurrentTick;
+    private bool NewTickThisUpdate;
     private float CurrentFrameTime;
     private GameState GameState;
+    private SimEventEmitter SimEventEmitter;
     private Sim Sim;
     private Updater Updater;
-    private InputHandler InputHandler;
     private float TickOffset;
     private string QuicksaveFilename;
 
     public float SecondsPerSimulationTick = 0.1f;
+
+    public static InputHandler InputHandler = new InputHandler();
+    public static CameraSystem CameraSystem = new CameraSystem(InputHandler);
 
     private void OnEnable()
     {
@@ -52,7 +59,8 @@ public class GameManager : MonoBehaviour
         Initializer initializer = new Initializer(data, Assembly.GetExecutingAssembly());
         GameState = initializer.InitialGameState;
         Updater = new Updater(GameState);
-        Sim = new Sim(initializer.InitialSimState, InputHandler, initializer.Systems, OnSimUpdated);
+        SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem);
+        Sim = new Sim(initializer.InitialSimState, SimEventEmitter, initializer.Systems, OnSimUpdated);
 
         TickOffset = Time.time;
         Sim.Enabled = true;
@@ -62,23 +70,27 @@ public class GameManager : MonoBehaviour
     {
         if (setup)
         {
-            InputHandler = new InputHandler();
-            InputHandler.OnFunctionKeyEvent += InputHandler_OnFunctionKeyEvent;
+            InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
         }
         else
         {
-            InputHandler.OnFunctionKeyEvent -= InputHandler_OnFunctionKeyEvent;
+            InputHandler.OnKeyEvent -= InputHandler_OnKeyEvent;
         }
     }
 
-    private void InputHandler_OnFunctionKeyEvent(FunctionKeyEvent @event)
+    private void InputHandler_OnKeyEvent(KeyEvent keyEvent)
     {
-        switch (@event.FunctionAction)
+        if (keyEvent.KeyInteraction != KeyInteraction.Pressed)
         {
-            case FunctionAction.QuickSave:
+            return;
+        }
+
+        switch (keyEvent.Action)
+        {
+            case InputAction.QuickSave:
                 QuickSave();
                 break;
-            case FunctionAction.QuickLoad:
+            case InputAction.QuickLoad:
                 QuickLoad();
                 break;
         }
@@ -103,7 +115,7 @@ public class GameManager : MonoBehaviour
         (new FileInfo(Filename)).Directory.Create();
         using (FileStream fileStream = new FileStream(Filename, FileMode.Create, FileAccess.Write))
         {
-            Snapshot snapshot = Sim.GetSnapshot(Math.Max(CurrentTick - 1, 0));
+            Snapshot snapshot = Sim.GetSnapshot(CurrentTick);
             Dictionary<ulong, string> archetypes = GameState.GetEntityArchetypes();
             SerializableGameData data = new SerializableGameData(snapshot, archetypes);
             data.Serialize(fileStream);
@@ -120,10 +132,29 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        InputHandler.Capture();
-        CurrentFrameTime = Time.time - TickOffset;
-        CurrentTick = (TickNumber)Mathf.FloorToInt(CurrentFrameTime / SecondsPerSimulationTick);
+        float tickOffset = TickOffset;
+        CalculateTick();
+
+        // Capture user input and fire events
+        InputHandler.Update();
+
+        // Update game logic
+        CameraSystem.Update(NewTickThisUpdate);
+
+        // Update simulation logic
+        if (tickOffset != TickOffset)
+        {
+            CalculateTick();
+        }
         Sim.Update(CurrentTick);
+    }
+
+    private void CalculateTick()
+    {
+        CurrentFrameTime = Time.time - TickOffset;
+        TickNumber tick = (TickNumber)Mathf.FloorToInt(CurrentFrameTime / SecondsPerSimulationTick);
+        NewTickThisUpdate = tick != CurrentTick;
+        CurrentTick = tick;
     }
 
     private void OnSimUpdated(FrameSnapshot frame)

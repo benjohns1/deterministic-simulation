@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using ComponentTypeName = System.String;
 
 namespace Simulation.State
@@ -68,6 +69,53 @@ namespace Simulation.State
                         continue;
                     }
                     components[type][i] = component;
+                }
+            }
+        }
+
+        public void AssertEquals(Snapshot other)
+        {
+            if (components.Count != other.components.Count)
+            {
+                throw new Exception("Component count mismatch");
+            }
+
+            foreach (ComponentTypeName name in components.Keys)
+            {
+                if (!other.components.ContainsKey(name))
+                {
+                    throw new Exception("Component not found: " + name);
+                }
+
+                for (int i = 0; i < components[name].Count; i++)
+                {
+                    SimComponent thisComponent = components[name][i];
+                    SimComponent otherComponent = other.components[name][i];
+                    Type componentType = thisComponent.GetType();
+
+                    // Compare SimComponent property values
+                    PropertyInfo[] props = componentType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                    foreach (PropertyInfo prop in props)
+                    {
+                        object val1 = prop.GetValue(thisComponent);
+                        object val2 = prop.GetValue(otherComponent);
+                        if (!Equals(val1, val2))
+                        {
+                            throw new Exception(string.Format("Component {0} property '{1}' value not equal. Expected: {2}, actual: {3}", name, prop.Name, val1, val2));
+                        }
+                    }
+
+                    // Compare SimComponent field values
+                    FieldInfo[] fields = componentType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                    foreach (FieldInfo field in fields)
+                    {
+                        object val1 = field.GetValue(thisComponent);
+                        object val2 = field.GetValue(otherComponent);
+                        if (!Equals(val1, val2))
+                        {
+                            throw new Exception(string.Format("Component {0} field '{1}' value not equal. Expected: {2}, actual: {3}", name, field.Name, val1, val2));
+                        }
+                    }
                 }
             }
         }

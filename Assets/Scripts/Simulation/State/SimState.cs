@@ -1,7 +1,6 @@
-﻿using Simulation.Serialization;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using EntityID = System.UInt64;
 using TickNumber = System.UInt32;
 
@@ -11,18 +10,25 @@ namespace Simulation.State
     {
         public TickNumber Tick { get; private set; } = 0;
 
+        public Snapshot InitialSnapshot { get; private set; }
+
         private Snapshot CurrentSnapshot => Snapshots[Tick];
 
-        private EntityID NextEntityID = 0;
+        public EntityID NextEntityID { get; private set; } = 0;
 
-        // @TODO: implement as circular dictionary buffer (with max memory size)
+        // @TODO: implement as circular dictionary buffer (with max memory size, persistently store older snapshots in temp if too large to store in memory)
         private readonly Dictionary<TickNumber, Snapshot> Snapshots = new Dictionary<TickNumber, Snapshot>();
 
-        private Serializer Serializer = new Serializer();
-
-        public SimState(Snapshot snapshot)
+        public SimState()
         {
-            Snapshots.Add(0, (Snapshot)snapshot.Clone());
+            InitialSnapshot = new Snapshot();
+            Snapshots.Add(0, (Snapshot)InitialSnapshot.Clone());
+        }
+
+        public SimState(Snapshot initialSnapshot)
+        {
+            InitialSnapshot = (Snapshot)initialSnapshot.Clone();
+            Snapshots.Add(0, (Snapshot)initialSnapshot.Clone());
 
             EntityID largestEntityID = 0;
             foreach (SimComponent component in CurrentSnapshot.GetComponents())
@@ -35,9 +41,30 @@ namespace Simulation.State
             NextEntityID = largestEntityID + 1;
         }
 
-        public SimState()
+        public SimState(Snapshot initialSnapshot, Dictionary<TickNumber, Snapshot> snapshots, EntityID nextEntityID)
         {
-            Snapshots.Add(0, new Snapshot());
+            InitialSnapshot = (Snapshot)initialSnapshot.Clone();
+            TickNumber lastTick = 0;
+            Snapshots = snapshots.ToDictionary(s =>
+            {
+                if (s.Key > lastTick)
+                {
+                    lastTick = s.Key;
+                }
+                return s.Key;
+            }, s => (Snapshot)s.Value.Clone());
+            Tick = lastTick;
+            NextEntityID = nextEntityID;
+        }
+
+        internal Dictionary<TickNumber, Snapshot> GetAllSnapshots()
+        {
+            return Snapshots.ToDictionary(s => s.Key, s => s.Value);
+        }
+
+        public TickNumber GetMaxTick()
+        {
+            return Snapshots.Aggregate<KeyValuePair<TickNumber, Snapshot>, TickNumber>(0, (max, next) => next.Key > max ? next.Key : max);
         }
 
         public EntityID CreateEntity()
@@ -47,9 +74,13 @@ namespace Simulation.State
             return EntityID;
         }
 
-        public void AddComponent<T>(T component) where T : SimComponent
+        public void AddInitialComponent<T>(T component) where T : SimComponent
         {
-            CurrentSnapshot.AddComponent<T>(component);
+            InitialSnapshot.AddComponent<T>(component);
+            if (Snapshots.ContainsKey(0))
+            {
+                Snapshots[0].AddComponent<T>(component);
+            }
         }
 
         public IEnumerable<T> GetComponents<T>() where T : SimComponent
@@ -62,9 +93,10 @@ namespace Simulation.State
             return CurrentSnapshot.GetComponents();
         }
 
-        public Snapshot GetSnapshot(TickNumber tick)
+        public Snapshot GetSnapshot(TickNumber? tick = null)
         {
-            return (Snapshot)Snapshots[tick].Clone();
+            TickNumber tickNumber = tick ?? (uint)(Snapshots.Count - 1);
+            return (Snapshot)Snapshots[tickNumber].Clone();
         }
 
         internal void NewSnapshot(TickNumber tick)

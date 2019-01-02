@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace GameLogic
+namespace Game.Camera
 {
     public class CameraComponent : MonoBehaviour
     {

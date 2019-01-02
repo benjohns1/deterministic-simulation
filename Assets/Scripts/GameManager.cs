@@ -1,45 +1,76 @@
-﻿using GameLogic;
+﻿using Persistence;
 using SimLogic;
 using Simulation;
 using Simulation.State;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UserInput;
+using Game.Camera;
+using Game.Movement;
 using TickNumber = System.UInt32;
+using Simulation.TestRunner;
+using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
 {
+    private Initializer Initializer;
     private TickNumber CurrentTick;
     private bool NewTickThisUpdate;
     private float CurrentFrameTime;
     private GameState GameState;
     private SimEventEmitter SimEventEmitter;
     private Sim Sim;
-    private Updater Updater;
+    private IPersistence Persist;
     private float TickOffset;
     private string QuicksaveFilename;
 
-    public float SecondsPerSimulationTick = 0.1f;
+    public float SecondsPerSimulationTick = 0.5f;
+    public MovementSystem MovementSystem;
 
+    // @TODO: Get rid of these as static fields, provide lookup for Components that need to register themselves with the correct systems
     public static InputHandler InputHandler = new InputHandler();
     public static CameraSystem CameraSystem = new CameraSystem(InputHandler);
 
-    private void OnEnable()
+    public bool Replaying
+    {
+        get => _replaying;
+        private set
+        {
+            if (value)
+            {
+                Initializer.InitializeFromScene();
+                SetGameState(Initializer.InitialGameState);
+                LastReplayTick = CurrentTick + 1;
+                TickOffset = Time.time;
+            }
+
+            SimEventEmitter.Enable = !value;
+            _replaying = value;
+        }
+    }
+
+    private uint LastReplayTick;
+    private bool _replaying;
+
+    private void Awake()
     {
         QuicksaveFilename = Application.persistentDataPath + "/Saves/quicksave.sav";
+    }
+
+    private void OnEnable()
+    {
         SetupInputHandler();
 
-        SceneManager.sceneLoaded += SceneManager_sceneLoaded;
         Scene scene = SceneManager.GetActiveScene();
         if (scene != null && scene.isLoaded)
         {
             Initialize();
+        }
+        else
+        {
+            SceneManager.sceneLoaded += SceneManager_sceneLoaded;
         }
     }
     private void OnDisable()
@@ -53,17 +84,21 @@ public class GameManager : MonoBehaviour
         Initialize();
     }
 
-    private void Initialize(string loadFromFile = null)
+    private void Initialize(SerializableGame gameData = null)
     {
-        SerializableGameData data = loadFromFile == null ? null : LoadFromFile(QuicksaveFilename);
-        Initializer initializer = new Initializer(data, Assembly.GetExecutingAssembly());
-        GameState = initializer.InitialGameState;
-        Updater = new Updater(GameState);
-        SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem);
-        Sim = new Sim(initializer.InitialSimState, SimEventEmitter, initializer.Systems, OnSimUpdated);
-
+        Persist = new Filesystem(new Simulation.Serialization.Serializer());
+        Initializer = new Initializer(gameData, Assembly.GetExecutingAssembly());
+        SetGameState(Initializer.InitialGameState);
+        Sim = new Sim(Initializer.InitialSimState, SimEventEmitter, Initializer.Systems, OnSimUpdated, Initializer.InitialEvents);
         TickOffset = Time.time;
-        Sim.Enabled = true;
+    }
+
+    private void SetGameState(GameState gameState)
+    {
+        GameState = gameState;
+        MovementSystem = new MovementSystem(GameState);
+        CameraSystem.SetGameState(GameState);
+        SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem);
     }
 
     private void SetupInputHandler(bool setup = true)
@@ -78,7 +113,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void InputHandler_OnKeyEvent(KeyEvent keyEvent)
+    private async void InputHandler_OnKeyEvent(KeyEvent keyEvent)
     {
         if (keyEvent.KeyInteraction != KeyInteraction.Pressed)
         {
@@ -88,57 +123,79 @@ public class GameManager : MonoBehaviour
         switch (keyEvent.Action)
         {
             case InputAction.QuickSave:
-                QuickSave();
+                await QuickSave();
                 break;
             case InputAction.QuickLoad:
                 QuickLoad();
                 break;
+            case InputAction.Replay:
+                Replay();
+                break;
+            case InputAction.TestQuickSave:
+                RunTest(QuicksaveFilename);
+                break;
         }
     }
 
-    private async void QuickSave()
+    private void RunTest(string filename)
+    {
+        try
+        {
+            SerializableGame data = Persist.LoadGame(filename);
+            List<SimSystem> systems = Initializer.InstantiateSimSystems(Assembly.GetExecutingAssembly());
+            SimState simState = new SimState(data.InitialSnapshot, data.SnapshotHistory, data.NextEntityID);
+            Test test = new Test(simState, systems, data.DeserializedEvents);
+            test.Run();
+            Debug.Log("Test run successfully");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(ex.ToString());
+        }
+    }
+
+    private async Task QuickSave()
     {
         await Task.Factory.StartNew(() =>
         {
-            SaveToFile(QuicksaveFilename);
+            Persist.SaveGame(QuicksaveFilename, CurrentTick, Sim, GameState);
         });
     }
 
     private void QuickLoad()
     {
-        Sim.Enabled = false;
-        Initialize(QuicksaveFilename);
+        SerializableGame data = Persist.LoadGame(QuicksaveFilename);
+        Initialize(data);
     }
 
-    private void SaveToFile(string Filename)
+    private void Replay()
     {
-        (new FileInfo(Filename)).Directory.Create();
-        using (FileStream fileStream = new FileStream(Filename, FileMode.Create, FileAccess.Write))
-        {
-            Snapshot snapshot = Sim.GetSnapshot(CurrentTick);
-            Dictionary<ulong, string> archetypes = GameState.GetEntityArchetypes();
-            SerializableGameData data = new SerializableGameData(snapshot, archetypes);
-            data.Serialize(fileStream);
-        }
-    }
-
-    private SerializableGameData LoadFromFile(string Filename)
-    {
-        using (FileStream stream = new FileStream(Filename, FileMode.Open, FileAccess.Read))
-        {
-            return SerializableGameData.Deserialize(stream);
-        }
+        Replaying = true;
     }
 
     private void Update()
     {
+        if (Replaying)
+        {
+            CalculateTick();
+            InputHandler.Capture();
+
+            Sim.RunTick(CurrentTick);
+            if (CurrentTick > LastReplayTick)
+            {
+                Replaying = false;
+            }
+            return;
+        }
+
         float tickOffset = TickOffset;
         CalculateTick();
 
         // Capture user input and fire events
-        InputHandler.Update();
+        InputHandler.Capture();
 
         // Update game logic
+        // @TODO: IGameSystem
         CameraSystem.Update(NewTickThisUpdate);
 
         // Update simulation logic
@@ -146,7 +203,7 @@ public class GameManager : MonoBehaviour
         {
             CalculateTick();
         }
-        Sim.Update(CurrentTick);
+        Sim.PlayTick(CurrentTick);
     }
 
     private void CalculateTick()
@@ -160,7 +217,8 @@ public class GameManager : MonoBehaviour
     private void OnSimUpdated(FrameSnapshot frame)
     {
         float interpolation = InterpolationValue(CurrentFrameTime, frame.Tick, SecondsPerSimulationTick);
-        Updater.UpdateGame(frame, interpolation);
+        CameraSystem.OnSimUpdated(frame, interpolation, Replaying);
+        MovementSystem.OnSimUpdated(frame, interpolation, Replaying);
     }
 
     private static float InterpolationValue(float time, TickNumber tick, float tickLength)

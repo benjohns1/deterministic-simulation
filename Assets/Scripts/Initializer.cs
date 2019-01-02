@@ -8,20 +8,20 @@ using TickNumber = System.UInt32;
 using System.Reflection;
 using System.Linq;
 using SimLogic;
-using GameLogic;
+using Persistence;
+using Game.Camera;
+using Game.Movement;
 
-class Initializer
+public class Initializer
 {
     public GameState InitialGameState { get; private set; }
     public SimState InitialSimState { get; private set; }
+    public Dictionary<TickNumber, List<IEvent>> InitialEvents { get; private set; }
     public List<SimSystem> Systems { get; }
 
-    Dictionary<TickNumber, List<IEvent>> InitialEvents => null;
-
-    public Initializer(SerializableGameData data, Assembly systemsAssembly)
+    public Initializer(SerializableGame data, Assembly systemsAssembly)
     {
-        InitialGameState = new GameState();
-        Systems = InitializeSystems(systemsAssembly);
+        Systems = InstantiateSimSystems(systemsAssembly);
 
         if (data == null)
         {
@@ -33,8 +33,9 @@ class Initializer
         }
     }
 
-    private void InitializeFromScene()
+    public void InitializeFromScene()
     {
+        InitialGameState = new GameState();
         InitialSimState = new SimState();
 
         SimEntityComponent[] simEntities = Object.FindObjectsOfType<SimEntityComponent>();
@@ -51,26 +52,27 @@ class Initializer
             {
                 if (entityComponent.GetComponent<CameraComponent>() == null)
                 {
-                    InitialSimState.AddComponent(new SimPosition(entityID, transformComponent.position));
+                    InitialSimState.AddInitialComponent(new SimPosition(entityID, transformComponent.position));
                 }
             }
 
             VelocityComponent velocityComponent = entityComponent.GetComponent<VelocityComponent>();
             if (velocityComponent != null)
             {
-                InitialSimState.AddComponent(new SimVelocity(entityID, velocityComponent.Velocity, velocityComponent.MaxAcceleration));
+                InitialSimState.AddInitialComponent(new SimVelocity(entityID, velocityComponent.Velocity, velocityComponent.MaxAcceleration));
             }
             CameraComponent cameraComponent = entityComponent.GetComponent<CameraComponent>();
             if (cameraComponent != null)
             {
-                InitialSimState.AddComponent(new SimCamera(entityID, cameraComponent.transform.position, cameraComponent.enabled));
+                InitialSimState.AddInitialComponent(new SimCamera(entityID, cameraComponent.transform.position, cameraComponent.enabled));
             }
         }
     }
 
-    private void InitializeFromGameData(SerializableGameData data)
+    public void InitializeFromGameData(SerializableGame data)
     {
-        InitialSimState = new SimState(data.Snapshot);
+        InitialGameState = new GameState();
+        InitialSimState = new SimState(data.InitialSnapshot, data.SnapshotHistory, data.NextEntityID);
 
         SimEntityComponent[] simEntities = Object.FindObjectsOfType<SimEntityComponent>();
         foreach (SimEntityComponent entityComponent in simEntities)
@@ -105,13 +107,16 @@ class Initializer
                 cameraObject.transform.position = (component as SimCamera).Position;
             }
         }
+
+        // Initialize events
+        InitialEvents = data.DeserializedEvents;
     }
 
-    private static List<SimSystem> InitializeSystems(Assembly assembly)
+    public static List<SimSystem> InstantiateSimSystems(Assembly assembly)
     {
         List<SimSystem> systems = new List<SimSystem>();
         System.Type parentType = typeof(SimSystem);
-        foreach (System.Type systemType in assembly.GetTypes().Where(t => parentType.IsAssignableFrom(t)))
+        foreach (System.Type systemType in assembly.GetTypes().Where(t => parentType.IsAssignableFrom(t) && t.IsClass && !t.IsAbstract))
         {
             systems.Add((SimSystem)System.Activator.CreateInstance(systemType));
         }

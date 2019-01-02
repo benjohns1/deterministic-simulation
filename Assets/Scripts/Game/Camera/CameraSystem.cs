@@ -1,28 +1,32 @@
-﻿using Simulation.ExternalEvent;
+﻿using SimLogic;
+using Simulation.ExternalEvent;
+using Simulation.State;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UserInput;
 
-namespace GameLogic
+namespace Game.Camera
 {
-    public class CameraSystem
+    [System.Serializable]
+    public struct PositionUpdatedEvent : IEvent
+    {
+        public Vector3 Position { get; }
+
+        public PositionUpdatedEvent(Vector3 position) : this()
+        {
+            Position = position;
+        }
+    }
+
+    public class CameraSystem : IGameSystem
     {
         InputHandler InputHandler;
+        GameState GameState;
 
         public delegate void PositionUpdateHandler(PositionUpdatedEvent positionUpdatedEvent);
 
         public event PositionUpdateHandler OnPositionUpdated;
-
-        public struct PositionUpdatedEvent : IEvent
-        {
-            public Vector3 Position { get; }
-
-            public PositionUpdatedEvent(Vector3 position) : this()
-            {
-                Position = position;
-            }
-        }
 
         private readonly InputAction[] InputActions = new InputAction[]
         {
@@ -39,6 +43,11 @@ namespace GameLogic
         {
             InputHandler = inputHandler;
             InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
+        }
+
+        public void SetGameState(GameState gameState)
+        {
+            GameState = gameState;
         }
 
         public void Register(CameraComponent camera)
@@ -110,5 +119,28 @@ namespace GameLogic
             }
         }
 
+        public void OnSimUpdated(FrameSnapshot frame, float interpolation, bool replay)
+        {
+            if (!replay)
+            {
+                // Don't update camera location from sim during play, it's controlled via direct user input
+                return;
+            }
+
+            // Do update camera location during replay
+
+            // @TODO: determine which entities were actually updated last tick and only loop through them (raise event when SimSystem makes update?)
+            SimCamera[] simCameras = frame.Snapshot.GetComponents<SimCamera>().ToArray();
+            SimCamera[] nextCameras = frame.NextSnapshot.GetComponents<SimCamera>().ToArray();
+            for (int i = 0; i < simCameras.Length; i++)
+            {
+                // @TODO: more efficiently get GameObject, related SimComponents and MonoBehaviours
+                GameObject go = GameState.GetGameObject(simCameras[i].EntityID).GameObject;
+                Transform transform = go.GetComponent<Transform>();
+
+                Vector2 newPosition = Vector2.Lerp(simCameras[i].Position, nextCameras[i].Position, interpolation);
+                transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
+            }
+        }
     }
 }

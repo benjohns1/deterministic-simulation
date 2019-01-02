@@ -1,10 +1,9 @@
-﻿using Simulation;
+﻿using Game.Camera;
+using Simulation;
 using Simulation.ExternalEvent;
 using Simulation.State;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
-using static GameLogic.CameraSystem;
 
 namespace SimLogic
 {

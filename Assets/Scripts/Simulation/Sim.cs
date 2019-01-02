@@ -1,7 +1,7 @@
 ﻿using Simulation.ExternalEvent;
 using Simulation.State;
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using TickNumber = System.UInt32;
 
@@ -12,8 +12,7 @@ namespace Simulation
     public class Sim
     {
         public const byte MaxTicksPerUpdate = 8;
-        public bool Enabled = false;
-        private SimState State;
+        public SimState State { get; private set; }
         private EventStore EventStore;
         private IEmitter EventEmitter;
         private readonly IEnumerable<SimSystem> Systems;
@@ -29,23 +28,23 @@ namespace Simulation
             UpdateCallback = callback;
         }
 
-        public Snapshot GetSnapshot(TickNumber tick)
+        public Dictionary<TickNumber, List<SerializableEvent>> GetSerializableEvents()
         {
-            return State.GetSnapshot(tick);
+            return EventStore.GetSerializableEvents();
         }
 
-        public void Update(TickNumber tick)
+        public void PlayTick(TickNumber tick)
         {
-            if (!Enabled)
-            {
-                return;
-            }
-
             // Retrieve external events
             List<IEvent> events = EventEmitter.Events;
             EventStore.AddEvents(tick + 2, events);
             EventEmitter.Retrieved();
 
+            RunTick(tick);
+        }
+
+        public void RunTick(TickNumber tick)
+        {
             // Run all systems until this tick and next tick have been updated
             byte tickCount;
             TickNumber updateTick = State.Tick;
@@ -75,7 +74,7 @@ namespace Simulation
                 UnityEngine.Debug.Log("max ticks per update");
             }
 
-            UpdateCallback(State.GetFrameSnapshot(tick));
+            UpdateCallback?.Invoke(State.GetFrameSnapshot(tick));
         }
     }
 }

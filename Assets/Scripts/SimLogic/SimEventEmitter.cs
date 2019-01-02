@@ -1,10 +1,9 @@
 ﻿
-using GameLogic;
+using Game.Camera;
 using Simulation.ExternalEvent;
 using System.Collections.Generic;
 using System.Linq;
 using UserInput;
-using static GameLogic.CameraSystem;
 
 namespace SimLogic
 {
@@ -15,10 +14,21 @@ namespace SimLogic
     {
         List<IEvent> IEmitter.Events => SimEvents;
 
+        public bool Enable {
+            get => enable;
+            set
+            {
+                SetupEvents(value);
+                enable = value;
+            }
+        }
+
         private InputHandler InputHandler;
         private CameraSystem CameraSystem;
 
         private List<IEvent> SimEvents = new List<IEvent>();
+
+        private bool enable;
 
         private InputAction[] PassthroughKeyActions = new InputAction[]
         {
@@ -31,16 +41,27 @@ namespace SimLogic
         public SimEventEmitter(InputHandler inputHandler, CameraSystem cameraSystem)
         {
             InputHandler = inputHandler;
-            InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
-
             CameraSystem = cameraSystem;
-            CameraSystem.OnPositionUpdated += CameraSystem_OnPositionUpdated;
+            SetupEvents();
+        }
+
+        private void SetupEvents(bool setup = true)
+        {
+            if (setup)
+            {
+                InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
+                CameraSystem.OnPositionUpdated += CameraSystem_OnPositionUpdated;
+            }
+            else
+            {
+                InputHandler.OnKeyEvent -= InputHandler_OnKeyEvent;
+                CameraSystem.OnPositionUpdated -= CameraSystem_OnPositionUpdated;
+            }
         }
 
         ~SimEventEmitter()
         {
-            InputHandler.OnKeyEvent -= InputHandler_OnKeyEvent;
-            CameraSystem.OnPositionUpdated -= CameraSystem_OnPositionUpdated;
+            SetupEvents(false);
         }
 
         private void CameraSystem_OnPositionUpdated(PositionUpdatedEvent positionUpdatedEvent)

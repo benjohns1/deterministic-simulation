@@ -5,7 +5,7 @@ using UnityEngine;
 using ArchetypeName = System.String;
 using EntityID = System.UInt64;
 
-class GameState
+public class GameState
 {
     public struct GameObjectRef
     {

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace GameLogic
+namespace Game.Movement
 {
     public class VelocityComponent : MonoBehaviour
     {

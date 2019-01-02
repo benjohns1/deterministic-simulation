@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
 using TickNumber = System.UInt32;
 
 namespace Simulation.ExternalEvent
@@ -55,6 +57,11 @@ namespace Simulation.ExternalEvent
             {
                 events[tick].AddRange(newEvents);
             }
+        }
+
+        internal Dictionary<TickNumber, List<SerializableEvent>> GetSerializableEvents()
+        {
+            return events.ToDictionary(o => o.Key, o => o.Value.Select(e => new SerializableEvent(e)).ToList());
         }
 
         internal IEnumerable<IEvent> GetEvents(TickNumber tick)

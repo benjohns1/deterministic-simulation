@@ -17,6 +17,7 @@ namespace UserInput
         }
     }
 
+    [System.Serializable]
     public struct KeyEvent : IEvent
     {
         public KeyInteraction KeyInteraction { get; }
@@ -37,7 +38,7 @@ namespace UserInput
 
         private IControlScheme Bindings = new DefaultBindings();
 
-        public void Update()
+        public void Capture()
         {
             for (int i = 0; i < Bindings.Keys.Length; i++)
             {

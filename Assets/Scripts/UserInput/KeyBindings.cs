@@ -4,7 +4,7 @@ namespace UserInput
 {
     public enum KeyInteraction { Pressed, Released }
 
-    public enum InputAction { Up, Down, Left, Right, Fast, QuickSave, QuickLoad }
+    public enum InputAction { Up, Down, Left, Right, Fast, QuickSave, QuickLoad, Replay, TestQuickSave }
 
     public class DefaultBindings : IControlScheme
     {
@@ -19,6 +19,8 @@ namespace UserInput
             new Key(KeyCode.LeftShift, InputAction.Fast),
             new Key(KeyCode.F5, InputAction.QuickSave),
             new Key(KeyCode.F6, InputAction.QuickLoad),
+            new Key(KeyCode.F7, InputAction.Replay),
+            new Key(KeyCode.F9, InputAction.TestQuickSave),
         };
     }
 }

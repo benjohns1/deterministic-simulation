@@ -12,6 +12,7 @@ using Game.Movement;
 using TickNumber = System.UInt32;
 using Simulation.TestRunner;
 using System.Collections.Generic;
+using Game.UnitSelection;
 
 public class GameManager : MonoBehaviour
 {
@@ -32,6 +33,7 @@ public class GameManager : MonoBehaviour
     // @TODO: Get rid of these as static fields, provide lookup for Components that need to register themselves with the correct systems
     public static InputHandler InputHandler = new InputHandler();
     public static CameraSystem CameraSystem = new CameraSystem(InputHandler);
+    public static SelectionSystem SelectionSystem = new SelectionSystem(InputHandler);
 
     public bool Replaying
     {
@@ -98,7 +100,8 @@ public class GameManager : MonoBehaviour
         GameState = gameState;
         MovementSystem = new MovementSystem(GameState);
         CameraSystem.SetGameState(GameState);
-        SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem);
+        SelectionSystem.SetGameState(GameState);
+        SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem, SelectionSystem);
     }
 
     private void SetupInputHandler(bool setup = true)
@@ -115,7 +118,7 @@ public class GameManager : MonoBehaviour
 
     private async void InputHandler_OnKeyEvent(KeyEvent keyEvent)
     {
-        if (keyEvent.KeyInteraction != KeyInteraction.Pressed)
+        if (keyEvent.KeyInteraction != Interaction.Pressed)
         {
             return;
         }
@@ -197,6 +200,7 @@ public class GameManager : MonoBehaviour
         // Update game logic
         // @TODO: IGameSystem
         CameraSystem.Update(NewTickThisUpdate);
+        //SelectionSystem.Update(NewTickThisUpdate);
 
         // Update simulation logic
         if (tickOffset != TickOffset)

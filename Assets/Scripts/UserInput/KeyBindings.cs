@@ -2,25 +2,33 @@
 
 namespace UserInput
 {
-    public enum KeyInteraction { Pressed, Released }
+    public enum InteractionSubscription { PressAndRelease, Press, Release }
 
-    public enum InputAction { Up, Down, Left, Right, Fast, QuickSave, QuickLoad, Replay, TestQuickSave }
+    public enum InputType { Key, Mouse }
+
+    public enum InputAction { PrimaryInteract, SecondaryInteract, Multi, Up, Down, Left, Right, Fast, QuickSave, QuickLoad, Replay, TestQuickSave }
 
     public class DefaultBindings : IControlScheme
     {
-        Key[] IControlScheme.Keys => keys;
+        Binding[] IControlScheme.Keys => keys;
             
-        private readonly Key[] keys = new Key[]
+        private readonly Binding[] keys = new Binding[]
         {
-            new Key(KeyCode.W, InputAction.Up),
-            new Key(KeyCode.A, InputAction.Left),
-            new Key(KeyCode.S, InputAction.Down),
-            new Key(KeyCode.D, InputAction.Right),
-            new Key(KeyCode.LeftShift, InputAction.Fast),
-            new Key(KeyCode.F5, InputAction.QuickSave),
-            new Key(KeyCode.F6, InputAction.QuickLoad),
-            new Key(KeyCode.F7, InputAction.Replay),
-            new Key(KeyCode.F9, InputAction.TestQuickSave),
+            // Mouse bindings
+            new Binding(KeyCode.Mouse0, InputAction.PrimaryInteract, InputType.Mouse, InteractionSubscription.Press),
+            new Binding(KeyCode.Mouse1, InputAction.SecondaryInteract, InputType.Mouse, InteractionSubscription.Press),
+            // Keyboard controls
+            new Binding(KeyCode.W, InputAction.Up),
+            new Binding(KeyCode.A, InputAction.Left),
+            new Binding(KeyCode.S, InputAction.Down),
+            new Binding(KeyCode.D, InputAction.Right),
+            new Binding(KeyCode.LeftShift, InputAction.Fast),
+            new Binding(KeyCode.LeftShift, InputAction.Multi),
+            // Function keys
+            new Binding(KeyCode.F5, InputAction.QuickSave, InteractionSubscription.Press),
+            new Binding(KeyCode.F6, InputAction.QuickLoad, InteractionSubscription.Press),
+            new Binding(KeyCode.F7, InputAction.Replay, InteractionSubscription.Press),
+            new Binding(KeyCode.F9, InputAction.TestQuickSave, InteractionSubscription.Press),
         };
     }
 }

@@ -2,6 +2,6 @@
 {
     public interface IControlScheme
     {
-        Key[] Keys { get; }
+        Binding[] Keys { get; }
     }
 }

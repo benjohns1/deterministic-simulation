@@ -1,5 +1,6 @@
 ﻿
 using Game.Camera;
+using Game.UnitSelection;
 using Simulation.ExternalEvent;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,7 @@ namespace SimLogic
 
         private InputHandler InputHandler;
         private CameraSystem CameraSystem;
+        private SelectionSystem SelectionSystem;
 
         private List<IEvent> SimEvents = new List<IEvent>();
 
@@ -38,10 +40,11 @@ namespace SimLogic
             InputAction.Right
         };
 
-        public SimEventEmitter(InputHandler inputHandler, CameraSystem cameraSystem)
+        public SimEventEmitter(InputHandler inputHandler, CameraSystem cameraSystem, SelectionSystem selectionSystem)
         {
             InputHandler = inputHandler;
             CameraSystem = cameraSystem;
+            SelectionSystem = selectionSystem;
             SetupEvents();
         }
 
@@ -51,11 +54,13 @@ namespace SimLogic
             {
                 InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
                 CameraSystem.OnPositionUpdated += CameraSystem_OnPositionUpdated;
+                SelectionSystem.OnSelectionUpdated += SelectionSystem_OnSelectionUpdated;
             }
             else
             {
                 InputHandler.OnKeyEvent -= InputHandler_OnKeyEvent;
                 CameraSystem.OnPositionUpdated -= CameraSystem_OnPositionUpdated;
+                SelectionSystem.OnSelectionUpdated -= SelectionSystem_OnSelectionUpdated;
             }
         }
 
@@ -64,17 +69,28 @@ namespace SimLogic
             SetupEvents(false);
         }
 
+        private void SelectionSystem_OnSelectionUpdated(SelectionUpdatedEvent selectionUpdatedEvent)
+        {
+            AddEvent(selectionUpdatedEvent);
+        }
+
         private void CameraSystem_OnPositionUpdated(PositionUpdatedEvent positionUpdatedEvent)
         {
-            SimEvents.Add(positionUpdatedEvent);
+            AddEvent(positionUpdatedEvent);
         }
 
         private void InputHandler_OnKeyEvent(KeyEvent keyEvent)
         {
             if (PassthroughKeyActions.Contains(keyEvent.Action))
             {
-                SimEvents.Add(keyEvent);
+                AddEvent(keyEvent);
             }
+        }
+
+        private void AddEvent(IEvent @event)
+        {
+            UnityEngine.Debug.Log("Sim event added: " + @event);
+            SimEvents.Add(@event);
         }
 
         public void Retrieved()

@@ -75,7 +75,7 @@ namespace Game.Camera
 
         private void OnMovementEvent(CameraComponent camera, KeyEvent keyEvent)
         {
-            bool pressed = keyEvent.KeyInteraction == KeyInteraction.Pressed;
+            bool pressed = keyEvent.KeyInteraction == Interaction.Pressed;
             switch (keyEvent.Action)
             {
                 case InputAction.Up:

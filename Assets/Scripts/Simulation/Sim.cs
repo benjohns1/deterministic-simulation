@@ -18,14 +18,16 @@ namespace Simulation
         private readonly IEnumerable<SimSystem> Systems;
         private readonly IEnumerable<SimSystem> UntickableSystems;
         private readonly UpdateCallback UpdateCallback;
+        private readonly ILogger Logger;
 
-        public Sim(SimState initialState, IEmitter eventEmitter, IEnumerable<SimSystem> systems, UpdateCallback callback, Dictionary<TickNumber, List<IEvent>> events = null)
+        public Sim(ILogger logger, SimState initialState, IEmitter eventEmitter, IEnumerable<SimSystem> systems, UpdateCallback callback, Dictionary<TickNumber, List<IEvent>> events = null)
         {
             State = initialState;
             EventStore = new EventStore(events);
             EventEmitter = eventEmitter;
             Systems = systems;
             UpdateCallback = callback;
+            Logger = logger;
         }
 
         public Dictionary<TickNumber, List<SerializableEvent>> GetSerializableEvents()
@@ -71,7 +73,7 @@ namespace Simulation
             if (tickCount == MaxTicksPerUpdate)
             {
                 // @TODO: callback for gamemanager to adjust sim speed & notify player
-                UnityEngine.Debug.Log("max ticks per update");
+                Logger.Debug("Max ticks per update");
             }
 
             UpdateCallback?.Invoke(State.GetFrameSnapshot(tick));

@@ -11,14 +11,16 @@ namespace Simulation.TestRunner
         TickNumber MaxTick;
         SimState ExpectedState;
         Sim Sim;
+        ILogger Logger;
 
-        public Test(SimState simState, IEnumerable<SimSystem> systems, Dictionary<TickNumber, List<IEvent>> events, uint assertEvery = 1)
+        public Test(ILogger logger, SimState simState, IEnumerable<SimSystem> systems, Dictionary<TickNumber, List<IEvent>> events, uint assertEvery = 1)
         {
             MaxTick = simState.GetMaxTick();
             AssertEvery = assertEvery;
             ExpectedState = simState;
             SimState initialState = new SimState(simState.InitialSnapshot);
-            Sim = new Sim(initialState, null, systems, null, events);
+            Logger = logger;
+            Sim = new Sim(logger, initialState, null, systems, null, events);
         }
 
         public void Run()

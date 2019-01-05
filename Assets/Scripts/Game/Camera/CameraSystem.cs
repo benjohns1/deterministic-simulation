@@ -19,10 +19,9 @@ namespace Game.Camera
         }
     }
 
-    public class CameraSystem : IGameSystem
+    public class CameraSystem : IGameSystem, IRegistrar<CameraComponent>
     {
-        InputHandler InputHandler;
-        GameState GameState;
+        IInputHandler InputHandler;
 
         public delegate void PositionUpdateHandler(PositionUpdatedEvent positionUpdatedEvent);
 
@@ -39,23 +38,25 @@ namespace Game.Camera
 
         private List<CameraComponent> Cameras = new List<CameraComponent>();
 
-        public CameraSystem(InputHandler inputHandler)
+        private IGameState GameState;
+
+        public void SetGameState(IGameState gameState)
+        {
+            GameState = gameState;
+        }
+
+        public CameraSystem(IInputHandler inputHandler)
         {
             InputHandler = inputHandler;
             InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
         }
 
-        public void SetGameState(GameState gameState)
-        {
-            GameState = gameState;
-        }
-
-        public void Register(CameraComponent camera)
+        public void Register<T>(T camera) where T : CameraComponent
         {
             Cameras.Add(camera);
         }
 
-        public void Unregister(CameraComponent camera)
+        public void Unregister<T>(T camera) where T : CameraComponent
         {
             Cameras.Remove(camera);
         }

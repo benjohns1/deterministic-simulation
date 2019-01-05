@@ -1,18 +1,21 @@
-﻿using Persistence;
+﻿using Game;
+using Game.Camera;
+using Game.Movement;
+using Game.UnitSelection;
+using Persistence;
 using SimLogic;
+using SimpleInjector;
 using Simulation;
 using Simulation.State;
+using Simulation.TestRunner;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UserInput;
-using Game.Camera;
-using Game.Movement;
+using Utility;
 using TickNumber = System.UInt32;
-using Simulation.TestRunner;
-using System.Collections.Generic;
-using Game.UnitSelection;
 
 public class GameManager : MonoBehaviour
 {
@@ -20,7 +23,7 @@ public class GameManager : MonoBehaviour
     private TickNumber CurrentTick;
     private bool NewTickThisUpdate;
     private float CurrentFrameTime;
-    private GameState GameState;
+    private IGameState GameState;
     private SimEventEmitter SimEventEmitter;
     private Sim Sim;
     private IPersistence Persist;
@@ -30,10 +33,15 @@ public class GameManager : MonoBehaviour
     public float SecondsPerSimulationTick = 0.5f;
     public MovementSystem MovementSystem;
 
+    public static Container Container { get => container ?? InitContainer(); }
+    private static Container container;
+
+    private Simulation.ILogger Logger;
+    private IInputHandler InputHandler;
+
     // @TODO: Get rid of these as static fields, provide lookup for Components that need to register themselves with the correct systems
-    public static InputHandler InputHandler = new InputHandler();
-    public static CameraSystem CameraSystem = new CameraSystem(InputHandler);
-    public static SelectionSystem SelectionSystem = new SelectionSystem(InputHandler);
+    public static CameraSystem CameraSystem;
+    public static SelectionSystem SelectionSystem;
 
     public bool Replaying
     {
@@ -59,6 +67,28 @@ public class GameManager : MonoBehaviour
     private void Awake()
     {
         QuicksaveFilename = Application.persistentDataPath + "/Saves/quicksave.sav";
+
+        // Instantiate deps for this class
+        Logger = Container.GetInstance<Simulation.ILogger>();
+        InputHandler = Container.GetInstance<IInputHandler>();
+        CameraSystem = Container.GetInstance<CameraSystem>();
+        SelectionSystem = Container.GetInstance<SelectionSystem>();
+    }
+
+    private static Container InitContainer()
+    {
+        // Initialize depencency injection container services
+        container = new Container();
+        container.Options.DefaultLifestyle = Lifestyle.Singleton;
+        container.Register<Simulation.ILogger, UnityLogger>();
+        container.Register<IInputHandler, InputHandler>();
+        container.Register<CameraSystem>();
+        container.Register<SelectionSystem>();
+        container.Collection.Register(typeof(IRegistrar<>), typeof(IRegistrar<>).Assembly);
+        container.Collection.Register<IGameSystem>(typeof(IGameSystem).Assembly);
+
+        container.Verify();
+        return container;
     }
 
     private void OnEnable()
@@ -91,16 +121,17 @@ public class GameManager : MonoBehaviour
         Persist = new Filesystem(new Simulation.Serialization.Serializer());
         Initializer = new Initializer(gameData, Assembly.GetExecutingAssembly());
         SetGameState(Initializer.InitialGameState);
-        Sim = new Sim(Initializer.InitialSimState, SimEventEmitter, Initializer.Systems, OnSimUpdated, Initializer.InitialEvents);
+        Sim = new Sim(Logger, Initializer.InitialSimState, SimEventEmitter, Initializer.Systems, OnSimUpdated, Initializer.InitialEvents);
         TickOffset = Time.time;
     }
 
     private void SetGameState(GameState gameState)
     {
         GameState = gameState;
-        MovementSystem = new MovementSystem(GameState);
-        CameraSystem.SetGameState(GameState);
-        SelectionSystem.SetGameState(GameState);
+        foreach (IGameSystem system in Container.GetAllInstances<IGameSystem>())
+        {
+            system.SetGameState(GameState);
+        }
         SimEventEmitter = new SimEventEmitter(InputHandler, CameraSystem, SelectionSystem);
     }
 
@@ -145,15 +176,15 @@ public class GameManager : MonoBehaviour
         try
         {
             SerializableGame data = Persist.LoadGame(filename);
-            List<SimSystem> systems = Initializer.InstantiateSimSystems(Assembly.GetExecutingAssembly());
+            IEnumerable<SimSystem> systems = Initializer.InstantiateSimSystems(Assembly.GetExecutingAssembly());
             SimState simState = new SimState(data.InitialSnapshot, data.SnapshotHistory, data.NextEntityID);
-            Test test = new Test(simState, systems, data.DeserializedEvents);
+            Test test = new Test(Logger, simState, systems, data.DeserializedEvents);
             test.Run();
-            Debug.Log("Test run successfully");
+            Logger.Debug("Test run successfully");
         }
         catch (System.Exception ex)
         {
-            Debug.LogError(ex.ToString());
+            Logger.Error(ex);
         }
     }
 
@@ -198,9 +229,10 @@ public class GameManager : MonoBehaviour
         InputHandler.Capture();
 
         // Update game logic
-        // @TODO: IGameSystem
-        CameraSystem.Update(NewTickThisUpdate);
-        //SelectionSystem.Update(NewTickThisUpdate);
+        foreach (IGameSystem system in Container.GetAllInstances<IGameSystem>())
+        {
+            system.Update(NewTickThisUpdate);
+        }
 
         // Update simulation logic
         if (tickOffset != TickOffset)
@@ -221,8 +253,10 @@ public class GameManager : MonoBehaviour
     private void OnSimUpdated(FrameSnapshot frame)
     {
         float interpolation = InterpolationValue(CurrentFrameTime, frame.Tick, SecondsPerSimulationTick);
-        CameraSystem.OnSimUpdated(frame, interpolation, Replaying);
-        MovementSystem.OnSimUpdated(frame, interpolation, Replaying);
+        foreach (IGameSystem system in Container.GetAllInstances<IGameSystem>())
+        {
+            system.OnSimUpdated(frame, interpolation, Replaying);
+        }
     }
 
     private static float InterpolationValue(float time, TickNumber tick, float tickLength)

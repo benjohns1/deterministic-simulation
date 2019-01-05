@@ -5,7 +5,7 @@ namespace Persistence
 {
     interface IPersistence
     {
-        void SaveGame(string Filename, TickNumber currentTick, Sim sim, GameState gameState);
+        void SaveGame(string Filename, TickNumber currentTick, Sim sim, Game.IGameState gameState);
         SerializableGame LoadGame(string Filename);
     }
 }

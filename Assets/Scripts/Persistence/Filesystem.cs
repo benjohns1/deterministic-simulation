@@ -18,7 +18,7 @@ namespace Persistence
             Serializer = serializer;
         }
 
-        public void SaveGame(string Filename, TickNumber currentTick, Sim sim, GameState gameState)
+        public void SaveGame(string Filename, TickNumber currentTick, Sim sim, Game.IGameState gameState)
         {
             (new FileInfo(Filename)).Directory.Create();
             using (FileStream fileStream = new FileStream(Filename, FileMode.Create, FileAccess.Write))

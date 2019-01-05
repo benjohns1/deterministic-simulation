@@ -35,18 +35,18 @@ namespace Game.UnitSelection
 
         private readonly Selections Selections = new Selections();
         
-        private InputHandler InputHandler;
-        private GameState GameState;
+        private IInputHandler InputHandler;
+        private IGameState GameState;
         private bool Multi = false;
 
-        public SelectionSystem(InputHandler inputHandler)
+        public SelectionSystem(IInputHandler inputHandler)
         {
             InputHandler = inputHandler;
             InputHandler.OnPointerEvent += InputHandler_OnPointerEvent;
             InputHandler.OnKeyEvent += InputHandler_OnKeyEvent;
         }
 
-        public void SetGameState(GameState gameState)
+        public void SetGameState(IGameState gameState)
         {
             GameState = gameState;
         }

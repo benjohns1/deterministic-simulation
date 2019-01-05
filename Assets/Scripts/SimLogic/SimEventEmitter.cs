@@ -24,7 +24,7 @@ namespace SimLogic
             }
         }
 
-        private InputHandler InputHandler;
+        private IInputHandler InputHandler;
         private CameraSystem CameraSystem;
         private SelectionSystem SelectionSystem;
 
@@ -40,7 +40,7 @@ namespace SimLogic
             InputAction.Right
         };
 
-        public SimEventEmitter(InputHandler inputHandler, CameraSystem cameraSystem, SelectionSystem selectionSystem)
+        public SimEventEmitter(IInputHandler inputHandler, CameraSystem cameraSystem, SelectionSystem selectionSystem)
         {
             InputHandler = inputHandler;
             CameraSystem = cameraSystem;

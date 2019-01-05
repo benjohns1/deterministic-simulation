@@ -63,7 +63,14 @@ namespace UserInput
     public delegate void KeyEventHandler(KeyEvent keyEvent);
     public delegate void PointerEventHandler(PointerEvent pointerEvent);
 
-    public class InputHandler
+    public interface IInputHandler
+    {
+        event KeyEventHandler OnKeyEvent;
+        event PointerEventHandler OnPointerEvent;
+        void Capture();
+    }
+
+    public class InputHandler : IInputHandler
     {
         public event KeyEventHandler OnKeyEvent;
         public event PointerEventHandler OnPointerEvent;

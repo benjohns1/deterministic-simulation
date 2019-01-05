@@ -7,12 +7,7 @@ namespace Game.Movement
 {
     public class MovementSystem : IGameSystem
     {
-        private readonly GameState GameState;
-
-        public MovementSystem(GameState gameState)
-        {
-            GameState = gameState;
-        }
+        private IGameState GameState;
 
         public void OnSimUpdated(FrameSnapshot frame, float interpolation, bool replay)
         {
@@ -28,6 +23,11 @@ namespace Game.Movement
                 Vector2 newPosition = Vector2.Lerp(positions[i].Position, nextPositions[i].Position, interpolation);
                 transform.position = new Vector3(newPosition.x, newPosition.y, transform.position.z);
             }
+        }
+
+        public void SetGameState(IGameState gameState)
+        {
+            GameState = gameState;
         }
 
         public void Update(bool newTick) { }

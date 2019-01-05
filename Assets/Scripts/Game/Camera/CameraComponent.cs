@@ -2,7 +2,7 @@
 
 namespace Game.Camera
 {
-    public class CameraComponent : MonoBehaviour
+    public class CameraComponent : RegisterableComponent<CameraComponent>
     {
         public float NormalSpeed = 5f;
         public float FastSpeed = 15f;
@@ -19,16 +19,6 @@ namespace Game.Camera
         private void Awake()
         {
             CurrentSpeed = NormalSpeed;
-        }
-
-        private void OnEnable()
-        {
-            GameManager.CameraSystem.Register(this);
-        }
-
-        private void OnDisable()
-        {
-            GameManager.CameraSystem.Unregister(this);
         }
     }
 }

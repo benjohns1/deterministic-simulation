@@ -1,6 +1,7 @@
 ﻿
 using Game.Camera;
 using Game.UnitSelection;
+using Simulation;
 using Simulation.ExternalEvent;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,10 +9,15 @@ using UserInput;
 
 namespace SimLogic
 {
+    public interface ISimEventEmitter : IEmitter
+    {
+        bool Enable { get; set; }
+    }
+
     /// <summary>
     /// Accepts input events from game and forwards to notify and persist in simulation
     /// </summary>
-    public class SimEventEmitter : IEmitter
+    public class SimEventEmitter : ISimEventEmitter, System.IDisposable
     {
         List<IEvent> IEmitter.Events => SimEvents;
 
@@ -27,6 +33,7 @@ namespace SimLogic
         private IInputHandler InputHandler;
         private CameraSystem CameraSystem;
         private SelectionSystem SelectionSystem;
+        private readonly ILogger Logger;
 
         private List<IEvent> SimEvents = new List<IEvent>();
 
@@ -40,8 +47,9 @@ namespace SimLogic
             InputAction.Right
         };
 
-        public SimEventEmitter(IInputHandler inputHandler, CameraSystem cameraSystem, SelectionSystem selectionSystem)
+        public SimEventEmitter(ILogger logger, IInputHandler inputHandler, CameraSystem cameraSystem, SelectionSystem selectionSystem)
         {
+            Logger = logger;
             InputHandler = inputHandler;
             CameraSystem = cameraSystem;
             SelectionSystem = selectionSystem;
@@ -64,11 +72,6 @@ namespace SimLogic
             }
         }
 
-        ~SimEventEmitter()
-        {
-            SetupEvents(false);
-        }
-
         private void SelectionSystem_OnSelectionUpdated(SelectionUpdatedEvent selectionUpdatedEvent)
         {
             AddEvent(selectionUpdatedEvent);
@@ -89,13 +92,18 @@ namespace SimLogic
 
         private void AddEvent(IEvent @event)
         {
-            UnityEngine.Debug.Log("Sim event added: " + @event);
+            Logger.Debug("Sim event added: " + @event);
             SimEvents.Add(@event);
         }
 
         public void Retrieved()
         {
             SimEvents.Clear();
+        }
+
+        public void Dispose()
+        {
+            SetupEvents(false);
         }
     }
 }

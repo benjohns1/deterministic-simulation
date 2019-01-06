@@ -1,6 +1,5 @@
 ﻿using Simulation.ExternalEvent;
 using Simulation.State;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using TickNumber = System.UInt32;
@@ -15,12 +14,11 @@ namespace Simulation
         public SimState State { get; private set; }
         private EventStore EventStore;
         private IEmitter EventEmitter;
-        private readonly IEnumerable<SimSystem> Systems;
-        private readonly IEnumerable<SimSystem> UntickableSystems;
+        private readonly IEnumerable<ISimSystem> Systems;
         private readonly UpdateCallback UpdateCallback;
         private readonly ILogger Logger;
 
-        public Sim(ILogger logger, SimState initialState, IEmitter eventEmitter, IEnumerable<SimSystem> systems, UpdateCallback callback, Dictionary<TickNumber, List<IEvent>> events = null)
+        public Sim(ILogger logger, SimState initialState, IEmitter eventEmitter, IEnumerable<ISimSystem> systems, UpdateCallback callback, Dictionary<TickNumber, List<IEvent>> events = null)
         {
             State = initialState;
             EventStore = new EventStore(events);
@@ -57,6 +55,10 @@ namespace Simulation
 
                 // Get events that occurred this tick
                 IEnumerable<IEvent> tickEvents = EventStore.GetEvents(updateTick);
+                if (tickEvents.Any())
+                {
+                    Logger.Debug("Applying events: " + string.Join(", ", tickEvents));
+                }
 
                 // Run system logic
                 foreach (SimSystem system in Systems)
@@ -64,8 +66,6 @@ namespace Simulation
                     IEnumerable<IEvent> systemEvents = tickEvents.Where(e => system.Subscriptions.Any(s => s.EventType == e.GetType()));
                     State.Update(system.Tick(State, systemEvents));
                 }
-
-                EventStore.SetApplied(updateTick);
             }
 
             bool update = tickCount > 0;
@@ -73,7 +73,7 @@ namespace Simulation
             if (tickCount == MaxTicksPerUpdate)
             {
                 // @TODO: callback for gamemanager to adjust sim speed & notify player
-                Logger.Debug("Max ticks per update");
+                Logger.Warning("Max ticks per update reached");
             }
 
             UpdateCallback?.Invoke(State.GetFrameSnapshot(tick));

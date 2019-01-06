@@ -13,7 +13,7 @@ namespace Simulation.TestRunner
         Sim Sim;
         ILogger Logger;
 
-        public Test(ILogger logger, SimState simState, IEnumerable<SimSystem> systems, Dictionary<TickNumber, List<IEvent>> events, uint assertEvery = 1)
+        public Test(ILogger logger, SimState simState, IEnumerable<ISimSystem> systems, Dictionary<TickNumber, List<IEvent>> events, uint assertEvery = 1)
         {
             MaxTick = simState.GetMaxTick();
             AssertEvery = assertEvery;

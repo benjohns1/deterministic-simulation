@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 
 namespace Simulation.Serialization
 {
-    interface ISimSurrogate : ISerializationSurrogate
+    public interface ISimSurrogate : ISerializationSurrogate
     {
         Type Type { get; }
     }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -9,9 +10,9 @@ namespace Simulation.Serialization
 {
     public class Serializer
     {
-        private IFormatter Formatter;
+        protected IFormatter Formatter;
 
-        public Serializer()
+        public Serializer(IEnumerable<ISimSurrogate> additionalSurrogates = null)
         {
             Formatter = new BinaryFormatter();
             SurrogateSelector surrogateSelector = new SurrogateSelector();
@@ -22,6 +23,13 @@ namespace Simulation.Serialization
             {
                 ISimSurrogate surrogate = (ISimSurrogate)Activator.CreateInstance(surrogateType);
                 surrogateSelector.AddSurrogate(surrogate.Type, streamingContext, surrogate);
+            }
+            if (additionalSurrogates != null)
+            {
+                foreach (ISimSurrogate surrogate in additionalSurrogates)
+                {
+                    surrogateSelector.AddSurrogate(surrogate.Type, streamingContext, surrogate);
+                }
             }
             Formatter.SurrogateSelector = surrogateSelector;
         }

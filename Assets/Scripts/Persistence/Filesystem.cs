@@ -11,11 +11,11 @@ namespace Persistence
 {
     public class Filesystem : IPersistence
     {
-        Serializer Serializer;
+        ISerializer Serializer;
 
-        public Filesystem(Serializer serializer)
+        public Filesystem(ISerializer serializer)
         {
-            Serializer = serializer;
+            Serializer = serializer ?? throw new System.ArgumentNullException(nameof(serializer));
         }
 
         public void SaveGame(string Filename, TickNumber currentTick, Sim sim, Game.IGameState gameState)

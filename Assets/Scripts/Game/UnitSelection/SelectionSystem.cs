@@ -1,21 +1,20 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using SimLogic;
-using Simulation;
+﻿using SimLogic;
 using Simulation.ExternalEvent;
 using Simulation.State;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UserInput;
 using EntityID = System.UInt64;
 
 namespace Game.UnitSelection
 {
+    public enum SelectAction { Selected, Deselected, Cleared }
+
     [System.Serializable]
     public struct SelectionUpdatedEvent : IEvent
     {
-        public enum SelectAction { Selected, Deselected, Cleared }
-
-        public SelectAction Action { get;  }
+        public SelectAction Action { get; }
         public EntityID EntityID { get; }
         public bool Multi { get; }
 
@@ -27,14 +26,14 @@ namespace Game.UnitSelection
         }
     }
 
+    public delegate void SelectionUpdateHandler(SelectionUpdatedEvent selectionUpdatedEvent);
+
     public class SelectionSystem : IGameSystem
     {
-        public delegate void SelectionUpdateHandler(SelectionUpdatedEvent selectionUpdatedEvent);
-
         public event SelectionUpdateHandler OnSelectionUpdated;
 
-        private readonly Selections Selections = new Selections();
-        
+        private readonly List<SelectableComponent> Selected = new List<SelectableComponent>();
+
         private IInputHandler InputHandler;
         private IGameState GameState;
         private bool Multi = false;
@@ -69,12 +68,7 @@ namespace Game.UnitSelection
 
         public bool IsSelected(SelectableComponent selectable)
         {
-            return Selections.IsSelected(selectable);
-        }
-
-        public IEnumerable<SelectableComponent> GetSelections()
-        {
-            return Selections.GetSelections();
+            return selectable == null ? false : Selected.Contains(selectable);
         }
 
         protected void SelectActionAtScreenPosition(Vector2 position, bool multi)
@@ -82,11 +76,75 @@ namespace Game.UnitSelection
             Vector2 worldPosition = UnityEngine.Camera.main.ScreenToWorldPoint(position);
             RaycastHit2D hit = Physics2D.Raycast(worldPosition, Vector2.zero);
             SelectableComponent selection = hit.transform?.gameObject.GetComponent<SelectableComponent>();
-            SelectionUpdatedEvent.SelectAction? action = Selections.UpdateSelections(selection, multi);
-            if (action != null)
+            UpdateSelections(selection, multi);
+        }
+
+        protected void UpdateSelections(SelectableComponent selection, bool multi)
+        {
+            if (IsSelected(selection) && (multi || Selected.Any()))
             {
-                OnSelectionUpdated?.Invoke(new SelectionUpdatedEvent((SelectionUpdatedEvent.SelectAction)action, selection.GetComponent<SimEntityComponent>().EntityID, multi));
+                Deselect(selection, multi);
             }
+            else
+            {
+                Select(selection, multi);
+            }
+        }
+
+        protected void Deselect(SelectableComponent selection, bool multi)
+        {
+            if (!multi)
+            {
+                Clear();
+            }
+            if (!IsSelected(selection))
+            {
+                return;
+            }
+            Selected.Remove(selection);
+            selection.Deselect();
+            InvokeEvent(SelectAction.Deselected, selection, multi);
+        }
+
+        public void Select(SelectableComponent selection, bool multi)
+        {
+            if (!multi)
+            {
+                Clear(Selected.Count == 1 ? selection : null);
+            }
+            if (selection == null)
+            {
+                return;
+            }
+            if (IsSelected(selection))
+            {
+                return;
+            }
+            Selected.Add(selection);
+            selection.Select();
+            InvokeEvent(SelectAction.Selected, selection, multi);
+        }
+
+        public void Clear(SelectableComponent ignore = null)
+        {
+            if (Selected.Count <= 0)
+            {
+                return;
+            }
+            foreach (SelectableComponent selected in Selected)
+            {
+                if (selected != ignore)
+                {
+                    selected.Deselect();
+                }
+            }
+            Selected.Clear();
+            InvokeEvent(SelectAction.Cleared);
+        }
+
+        private void InvokeEvent(SelectAction action, SelectableComponent selection = null, bool multi = false)
+        {
+            OnSelectionUpdated?.Invoke(new SelectionUpdatedEvent(action, selection?.GetComponent<Simulation.SimEntityComponent>().EntityID ?? 0, multi));
         }
 
         public void Update(bool newTick) { }
@@ -105,15 +163,15 @@ namespace Game.UnitSelection
             SimSelectable[] simSelections = frame.Snapshot.GetComponents<SimSelectable>().Where(s => s.Selected).ToArray();
             if (simSelections.Length <= 0)
             {
-                Selections.Clear();
+                Clear();
                 return;
             }
-            List<SelectableComponent> remainingSelections = Selections.GetSelections().ToList();
+            List<SelectableComponent> remainingSelections = Selected.ToList();
             for (int i = 0; i < simSelections.Length; i++)
             {
                 SelectableComponent selection = GameState.GetGameObject(simSelections[i].EntityID).GameObject.GetComponent<SelectableComponent>();
                 remainingSelections.Remove(selection);
-                Selections.Select(selection, true);
+                Select(selection, true);
             }
             foreach (SelectableComponent deselect in remainingSelections)
             {

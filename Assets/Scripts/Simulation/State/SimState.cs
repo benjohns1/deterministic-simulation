@@ -14,7 +14,7 @@ namespace Simulation.State
 
         private Snapshot CurrentSnapshot => Snapshots[Tick];
 
-        public EntityID NextEntityID { get; private set; } = 0;
+        public EntityID NextEntityID { get; private set; } = 1;
 
         // @TODO: implement as circular dictionary buffer (with max memory size, persistently store older snapshots in temp if too large to store in memory)
         private readonly Dictionary<TickNumber, Snapshot> Snapshots = new Dictionary<TickNumber, Snapshot>();

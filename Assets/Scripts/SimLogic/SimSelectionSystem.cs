@@ -23,35 +23,38 @@ namespace SimLogic
                 return Enumerable.Empty<ComponentUpdate>();
             }
 
-            SelectionUpdatedEvent @event = (SelectionUpdatedEvent)events.LastOrDefault(e => e.GetType() == typeof(SelectionUpdatedEvent));
-
-            foreach (SimSelectable selection in state.GetComponents<SimSelectable>())
+            IEnumerable<SimSelectable> selectables = state.GetComponents<SimSelectable>();
+            foreach (SelectionUpdatedEvent @event in events.Where(e => e.GetType() == typeof(SelectionUpdatedEvent)))
             {
-                SimSelectable newSelection = selection.Clone() as SimSelectable;
-                switch (@event.Action)
+                if (@event.Action == SelectAction.Cleared)
                 {
-                    case SelectionUpdatedEvent.SelectAction.Cleared:
-                        newSelection.Selected = false;
-                        break;
-                    case SelectionUpdatedEvent.SelectAction.Deselected:
-                        if (newSelection.EntityID == @event.EntityID)
-                        {
-                            newSelection.Selected = false;
-                        }
-                        break;
-                    case SelectionUpdatedEvent.SelectAction.Selected:
-                        if (newSelection.EntityID == @event.EntityID)
-                        {
-                            newSelection.Selected = true;
-                        }
-                        break;
-                    default:
-                        throw new System.Exception("Unhandled selection action");
+                    // Deselect everything
+                    foreach (SimSelectable clearSelectable in selectables)
+                    {
+                        AddUpdate(ref updates, clearSelectable, false);
+                    }
+                    continue;
                 }
-                updates.Add(new ComponentUpdate(newSelection));
+
+                SimSelectable selectable = selectables.First(s => s.EntityID == @event.EntityID);
+                if (@event.Action == SelectAction.Selected || @event.Action == SelectAction.Deselected)
+                {
+                    bool select = (@event.Action == SelectAction.Selected);
+                    AddUpdate(ref updates, selectable, select);
+                }
             }
 
             return updates;
+        }
+
+        private void AddUpdate(ref List<ComponentUpdate> updates, SimSelectable selectable, bool newSelectVal)
+        {
+            if (selectable.Selected != newSelectVal)
+            {
+                SimSelectable newSelectable = selectable.Clone() as SimSelectable;
+                newSelectable.Selected = newSelectVal;
+                updates.Add(new ComponentUpdate(newSelectable));
+            }
         }
     }
 }

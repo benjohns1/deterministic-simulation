@@ -8,6 +8,7 @@ namespace Game.UnitSelection
         public string CustomDisplayType = null;
         public string DisplayName => string.IsNullOrWhiteSpace(CustomDisplayName) ? name : CustomDisplayName;
         public string DisplayType => string.IsNullOrWhiteSpace(CustomDisplayType) ? "Object" : CustomDisplayType;
+        public bool Selected;
 
         public string SelectedLayerName = "Selected";
         public Color SelectColor = Color.green;
@@ -25,16 +26,17 @@ namespace Game.UnitSelection
 
         public void Select()
         {
-            SetState(SelectColor, SelectedLayerName);
+            SetState(true, SelectColor, SelectedLayerName);
         }
 
         public void Deselect()
         {
-            SetState(OriginalColor, DeselectedLayerName);
+            SetState(false, OriginalColor, DeselectedLayerName);
         }
 
-        protected void SetState(Color color, string sortingLayer)
+        protected void SetState(bool selected, Color color, string sortingLayer)
         {
+            Selected = selected;
             SpriteRenderer.color = color;
             SpriteRenderer.sortingLayerName = sortingLayer;
         }

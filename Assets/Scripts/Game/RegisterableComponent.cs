@@ -19,6 +19,11 @@ namespace Game
             Unregister();
         }
 
+        private void OnDestroy()
+        {
+            Unregister();
+        }
+
         protected virtual void Register()
         {
             foreach (IRegistrar<Registerable> registrar in Registrars)
